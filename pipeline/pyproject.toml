@@ -1,0 +1,21 @@
+[project]
+name = "dataset-quality-pipeline"
+version = "0.1.0"
+description = "Dataset quality, validation, splitting and versioning pipeline (Proyecto 2)."
+requires-python = "==3.12.*"
+
+# Runtime and dev dependencies are managed via requirements.in / requirements-dev.in,
+# compiled with `pip-compile --generate-hashes` into requirements.txt / requirements-dev.txt.
+# Edit the .in files and re-run pip-compile — never hand-edit the compiled .txt files,
+# or the hash-locking guarantee silently disappears.
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "C4", "SIM", "N"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]

@@ -1,0 +1,144 @@
+stages:
+  ingest:
+    cmd: >-
+      PYTHONPATH=src python -m dataset_quality.ingestion
+      data/raw/coco-dataset.json
+      --output data/interim/coco.json
+    deps:
+      - data/raw/coco-dataset.json
+      - src/dataset_quality/ingestion/__main__.py
+      - src/dataset_quality/ingestion/models.py
+      - src/dataset_quality/analyzers/m3.py
+    outs:
+      - data/interim/coco.json
+
+  validate:
+    cmd: >-
+      PYTHONPATH=src python -m dataset_quality.analyzers.m3
+      data/interim/coco.json
+      --category ${m3.target_categories[0]}
+      --category ${m3.target_categories[1]}
+      > data/interim/m3_baseline.json
+    deps:
+      - data/interim/coco.json
+      - src/dataset_quality/analyzers/m3.py
+      - src/dataset_quality/ingestion/models.py
+    params:
+      - m3.target_categories
+    outs:
+      - data/interim/m3_baseline.json
+
+  analyze:
+    cmd: >-
+      PYTHONPATH=src python -m dataset_quality.analyzers
+      data/interim/coco.json
+      --m3-baseline data/interim/m3_baseline.json
+      --small-object-max-width ${analyze.small_object_max_width}
+      --small-object-max-height ${analyze.small_object_max_height}
+      --class-imbalance-min-images ${analyze.class_imbalance_min_images}
+      --spatial-grid-size ${analyze.spatial_grid_size}
+      --output data/interim/observations.json
+      --duplicate-pairs-output data/interim/duplicate_pairs.json
+    deps:
+      - data/interim/coco.json
+      - data/interim/m3_baseline.json
+      - src/dataset_quality/analyzers/__main__.py
+      - src/dataset_quality/analyzers/dq04.py
+      - src/dataset_quality/analyzers/dq05.py
+      - src/dataset_quality/analyzers/dq06.py
+      - src/dataset_quality/analyzers/m3.py
+      - src/dataset_quality/ingestion/models.py
+      - src/dataset_quality/config/clients.py
+      - src/dataset_quality/config/settings.py
+      - src/dataset_quality/storage/object_store.py
+    params:
+      - analyze.small_object_max_width
+      - analyze.small_object_max_height
+      - analyze.class_imbalance_min_images
+      - analyze.spatial_grid_size
+    outs:
+      - data/interim/observations.json
+      - data/interim/duplicate_pairs.json
+
+  quality_gate:
+    cmd: >-
+      PYTHONPATH=src python -m dataset_quality.quality_gate.runner
+      --policy quality.yaml
+      --observations data/interim/observations.json
+      --dataset-version ${dataset_version}
+      --report data/interim/quality.json
+    deps:
+      - data/interim/observations.json
+      - quality.yaml
+      - src/dataset_quality/quality_gate/runner.py
+      - src/dataset_quality/quality_gate/models.py
+      - src/dataset_quality/quality_gate/policy.py
+      - src/dataset_quality/ingestion/models.py
+    params:
+      - dataset_version
+    outs:
+      - data/interim/quality.json
+
+  split:
+    cmd: >-
+      PYTHONPATH=src python -m dataset_quality.splits
+      data/interim/coco.json
+      --quality-report data/interim/quality.json
+      --duplicate-pairs data/interim/duplicate_pairs.json
+      --dataset-version ${dataset_version}
+      --train ${split.train}
+      --val ${split.val}
+      --test ${split.test}
+      --seed ${split.seed}
+      --report-output data/interim/splits.json
+      --assignment-output data/interim/split_assignment.json
+    deps:
+      - data/interim/coco.json
+      - data/interim/quality.json
+      - data/interim/duplicate_pairs.json
+      - src/dataset_quality/splits/__main__.py
+      - src/dataset_quality/splits/generator.py
+      - src/dataset_quality/splits/models.py
+      - src/dataset_quality/analyzers/m3.py
+      - src/dataset_quality/ingestion/models.py
+      - src/dataset_quality/config/models.py
+      - src/dataset_quality/quality_gate/models.py
+    params:
+      - dataset_version
+      - split.train
+      - split.val
+      - split.test
+      - split.seed
+    outs:
+      - data/interim/splits.json
+      - data/interim/split_assignment.json
+
+  release:
+    cmd: >-
+      PYTHONPATH=src python -m dataset_quality.versioning
+      --coco data/interim/coco.json
+      --quality-report data/interim/quality.json
+      --m3-baseline data/interim/m3_baseline.json
+      --observations data/interim/observations.json
+      --policy quality.yaml
+      --dataset-version ${dataset_version}
+      --history data/version_history.json
+      --output data/interim/versions.json
+    deps:
+      - data/interim/coco.json
+      - data/interim/quality.json
+      - data/interim/splits.json
+      - data/interim/m3_baseline.json
+      - data/interim/observations.json
+      - quality.yaml
+      - src/dataset_quality/versioning/__main__.py
+      - src/dataset_quality/versioning/models.py
+      - src/dataset_quality/analyzers/m3.py
+      - src/dataset_quality/ingestion/models.py
+      - src/dataset_quality/copilot/contracts.py
+      - src/dataset_quality/quality_gate/models.py
+      - src/dataset_quality/quality_gate/policy.py
+    params:
+      - dataset_version
+    outs:
+      - data/interim/versions.json

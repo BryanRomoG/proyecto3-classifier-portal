@@ -1,0 +1,64 @@
+name: Release
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  # Manual only, same reasoning as terraform.yml's aws-oidc-check: proves the
+  # OIDC role's new OPS-07 S3 permissions (dvc-cache/dataset-releases, dev +
+  # prod) actually work end to end, with real evidence in the Action log.
+  #
+  # This does NOT run `dvc push -r prod` here — DEV's DVC remote is MinIO
+  # (docker-compose, local-only), which a GitHub-hosted runner has no network
+  # path to. The real dvc-push-to-both-remotes + content-hash comparison
+  # (the ticket's actual Agent Test) is run locally by whoever has the
+  # dataset and MinIO up — see pipeline/README.md's "PROD remote and hash
+  # consistency" section — using their own real AWS credentials, not OIDC
+  # (OIDC federation is specific to GitHub Actions' own identity, not local
+  # runs). What this job proves instead is that the *IAM wiring* is correct:
+  # the role can really Put/Get/List against exactly the 4 scoped buckets,
+  # nothing more, nothing less.
+  verify-release-bucket-access:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - name: Configure AWS credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: us-east-1
+
+      - name: Write and read back a marker object in dataset-releases-prod
+        env:
+          BUCKET: dataset-releases-prod-685538571046
+          KEY: _release-workflow-check/oidc-proof.txt
+        run: |
+          echo "release.yml OIDC check — run ${{ github.run_id }} at $(date -u +%FT%TZ)" > proof.txt
+          aws s3 cp proof.txt "s3://$BUCKET/$KEY"
+          aws s3 cp "s3://$BUCKET/$KEY" downloaded.txt
+          diff proof.txt downloaded.txt
+          echo "Real PutObject + GetObject via the OIDC role succeeded against $BUCKET."
+
+      - name: Write and read back a marker object in dvc-cache-prod
+        env:
+          BUCKET: dvc-cache-prod-685538571046
+          KEY: _release-workflow-check/oidc-proof.txt
+        run: |
+          echo "release.yml OIDC check — run ${{ github.run_id }} at $(date -u +%FT%TZ)" > proof.txt
+          aws s3 cp proof.txt "s3://$BUCKET/$KEY"
+          aws s3 cp "s3://$BUCKET/$KEY" downloaded.txt
+          diff proof.txt downloaded.txt
+          echo "Real PutObject + GetObject via the OIDC role succeeded against $BUCKET."
+
+      - name: Confirm the role has no access outside the 4 scoped buckets
+        run: |
+          if aws s3 ls s3://dataset-quality-tfstate-685538571046/ >/tmp/out 2>&1; then
+            echo "OIDC role can read the Terraform state bucket — policy is too broad!" >&2
+            exit 1
+          fi
+          echo "Confirmed: access denied outside the scoped release buckets, as expected."

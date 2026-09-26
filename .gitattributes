@@ -1,0 +1,20 @@
+# APP-09 clean-clone validation: without this file, a Windows clone
+# (Git for Windows' default core.autocrlf=true) checks every tracked text
+# file out with CRLF line endings. Two concrete failures that caused:
+#
+# 1. backend/docker/entrypoint.sh -- COPY . . bakes the CRLF version into
+#    the (Linux) backend image, so its shebang becomes "#!/bin/sh\r". The
+#    container can't resolve that interpreter and crash-loops with
+#    "exec docker/entrypoint.sh: no such file or directory". This is the
+#    one that actually breaks `docker compose up --build` on a clean
+#    Windows clone.
+# 2. Every other tracked text file (.ts, .md, .yml, ...) also checks out as
+#    CRLF, so Biome's `format`/lint check -- which expects LF, matching how
+#    the rest of the repo was authored -- flags them after every checkout,
+#    `git am`, etc., even when nothing actually changed.
+#
+# Forcing LF on checkout for every text file, and explicitly for shell
+# scripts, fixes both regardless of a given contributor's local
+# core.autocrlf setting.
+* text=auto eol=lf
+*.sh text eol=lf

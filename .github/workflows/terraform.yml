@@ -1,0 +1,81 @@
+name: Terraform
+
+on:
+  push:
+    paths:
+      - "infra/**"
+      - ".github/workflows/terraform.yml"
+  pull_request:
+    paths:
+      - "infra/**"
+      - ".github/workflows/terraform.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.9.8"
+
+      - name: terraform fmt -check
+        run: terraform fmt -check -recursive infra/
+
+      - name: No static AWS credentials
+        run: |
+          # --exclude keeps this check's own source line (which necessarily
+          # contains these strings as its search pattern) from matching
+          # itself — a real leaked key in any other .tf/.yml/.yaml file
+          # still fails this step.
+          if grep -rnE "AKIA|aws_secret_access_key|aws-access-key-id" \
+               --include='*.tf' --include='*.yml' --include='*.yaml' \
+               --exclude='terraform.yml' .; then
+            echo "Found a static AWS credential pattern above — this must use OIDC instead." >&2
+            exit 1
+          fi
+
+  validate:
+    needs: lint
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        environment: [dev, prod]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.9.8"
+
+      - name: terraform init (no backend)
+        working-directory: infra/environments/${{ matrix.environment }}
+        run: terraform init -backend=false
+
+      - name: terraform validate
+        working-directory: infra/environments/${{ matrix.environment }}
+        run: terraform validate
+
+  # Manual only: there's no real AWS_ROLE_ARN wired up for automatic runs
+  # yet. Dispatch this once infra/README.md's one-time setup is done, to
+  # prove the OIDC trust actually works end to end.
+  aws-oidc-check:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - name: Configure AWS credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: us-east-1
+
+      - name: Prove the role works
+        run: aws sts get-caller-identity

@@ -1,0 +1,19 @@
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+.venv/
+*.egg-info/
+.env
+
+# DVC — the image never gets the actual dataset/intermediate outputs or the
+# cache/tmp dirs. Excluding the dataset file by its exact name (not the whole
+# data/raw/ directory) so data/raw/coco-dataset.json.dvc — which the
+# Dockerfile explicitly COPYs so `dvc pull -r dev` works inside the
+# container — actually reaches the build context in the first place. A
+# directory-level exclude blocks COPY from referencing anything inside it at
+# all, negation patterns included (same limitation as .gitignore).
+.dvc/cache/
+.dvc/tmp/
+data/raw/coco-dataset.json
+data/interim/

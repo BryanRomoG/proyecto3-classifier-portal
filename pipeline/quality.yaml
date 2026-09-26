@@ -1,0 +1,36 @@
+min_images_per_class:
+  label: Minimum images per class
+  threshold: 300
+  severity: fail
+  comparison: min
+  unit: images
+class_imbalance:
+  label: Class imbalance ratio
+  threshold: 3.0
+  severity: warn
+  comparison: max
+  unit: majority/minority ratio
+small_objects:
+  label: Small objects
+  threshold: 40.0
+  severity: warn
+  comparison: max
+  unit: percent
+duplicates:
+  label: Duplicates or near-duplicates
+  threshold: 5
+  severity: fail
+  comparison: max
+  unit: count
+invalid_boxes:
+  label: Invalid or degenerate bounding boxes
+  threshold: 0
+  severity: fail
+  comparison: max
+  unit: count
+spatial_bias:
+  label: Maximum object-center cell concentration
+  threshold: 50.0
+  severity: warn
+  comparison: max
+  unit: percent

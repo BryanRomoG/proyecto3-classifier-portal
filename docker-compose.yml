@@ -1,0 +1,198 @@
+services:
+  mariadb:
+    image: mariadb:11
+    environment:
+      MARIADB_ROOT_PASSWORD: password
+      MARIADB_DATABASE: image_repo
+    volumes:
+      - mariadb_data:/var/lib/mysql
+    ports:
+      - "3306:3306"
+    healthcheck:
+      test: ["CMD", "mariadb-admin", "ping", "-h", "localhost", "-uroot", "-ppassword"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  minio:
+    image: quay.io/minio/minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    volumes:
+      - minio_data:/data
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+
+  backend:
+    build: ./backend
+    depends_on:
+      mariadb:
+        condition: service_healthy
+      minio:
+        condition: service_started
+    environment:
+      NODE_ENV: production
+      PORT: 3100
+      DATABASE_URL: mysql://root:password@mariadb:3306/image_repo
+      DB_HOST: mariadb
+      DB_PORT: 3306
+      DB_USER: root
+      DB_PASSWORD: password
+      DB_NAME: image_repo
+      MINIO_ENDPOINT: minio
+      MINIO_PORT: 9000
+      MINIO_USE_SSL: "false"
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin
+      MINIO_BUCKET: image-annotations
+      MAX_UPLOAD_SIZE_BYTES: 5242880
+      # SPEC-PIPE-001 (APP-07) — dónde el backend lee/escribe las salidas de
+      # la pipeline de Data Quality, montadas abajo desde la raíz del repo.
+      #
+      # Corrección de revisión (Mau, PR de APP-07): esto montaba antes
+      # ./contracts (el mock versionado de APP-01/APP-05) — pero
+      # pipeline/dvc.yaml escribe quality.json/splits.json/versions.json en
+      # pipeline/data/interim/, nunca en contracts/, así que `dvc repro`
+      # nunca actualizaba lo que veía la Web App. Ver contracts/README.md.
+      PIPELINE_OUTPUT_DIR: /data/pipeline-output
+      QUALITY_POLICY_PATH: /data/quality.yaml
+    volumes:
+      # Solo lectura: el backend nunca escribe quality.json/splits.json/versions.json,
+      # esos los produce la pipeline (`dvc repro`) en pipeline/data/interim/.
+      - ./pipeline/data/interim:/data/pipeline-output:ro
+      # Lectura + escritura: PUT /quality-policy escribe aquí (Settings), y
+      # es el mismo archivo que `dataset_quality.quality_gate.runner` lee en
+      # la siguiente corrida — no hay ninguna otra copia de por medio.
+      - ./pipeline/quality.yaml:/data/quality.yaml
+    ports:
+      - "3100:3100"
+    restart: on-failure:5
+
+  # Dataset Copilot HTTP service (APP-10): wraps the same read-only MCP
+  # agent (agent.py, APP-06) behind POST /query so the Web App's Copilot
+  # screen can ask it real questions. Reuses the `pipeline` image (same
+  # Python code, same dependencies -- starlette/uvicorn/anthropic already
+  # ship via the `mcp` package, see requirements.txt) but overrides the
+  # command to run the HTTP server instead of the placeholder CMD, and is
+  # deliberately NOT profile-gated like `pipeline`/`minio-init`: the
+  # grading rubric's Agent Test expects a real Copilot chat on a plain
+  # `docker compose up`, not behind `--profile pipeline`.
+  copilot:
+    build: ./pipeline
+    command: ["python", "-m", "dataset_quality.copilot"]
+    depends_on:
+      mariadb:
+        condition: service_healthy
+      minio:
+        condition: service_started
+    environment:
+      # Same fix as PIPELINE_OUTPUT_DIR on `backend` above (Mau's APP-07
+      # review, mirrored here for the identical bug in
+      # copilot.agent.default_contracts_dir): mount the pipeline's real
+      # output, never the versioned contracts/ mock, so the Copilot's
+      # answers change when `dvc repro` changes the source data.
+      COPILOT_CONTRACTS_DIR: /data/pipeline-output
+      COPILOT_PORT: 8100
+      # Required for the agent to actually answer questions
+      # (AnthropicProvider.from_settings) -- read from a root .env file,
+      # not committed (see .env.example). Without it, POST /query returns a
+      # clean 503 rather than crashing (http_app.py); the MCP server and
+      # its read-only tools work either way.
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      COPILOT_MODEL: ${COPILOT_MODEL:-claude-sonnet-4-5}
+    volumes:
+      # Solo lectura, mismo volumen y misma razón que en `backend`.
+      - ./pipeline/data/interim:/data/pipeline-output:ro
+    ports:
+      - "8100:8100"
+    restart: on-failure:5
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_BASE_URL: /api
+    depends_on:
+      - backend
+      - copilot
+    ports:
+      - "8080:80"
+
+  # One-shot bucket init for DVC's DEV remote (s3://dvc-cache). Not needed by
+  # `backend` — it creates its own `image-annotations` bucket itself
+  # (ensureMinioBucket() in startup.service.ts) — but nothing analogous exists
+  # for dvc-cache, so without this, `dvc push/pull -r dev` fails on a clean
+  # `docker compose up` with no bucket to talk to. Profile-gated like
+  # `pipeline` itself: never runs on the default M1 startup path.
+  minio-init:
+    image: quay.io/minio/mc:latest
+    profiles: ["pipeline"]
+    depends_on:
+      minio:
+        condition: service_started
+    entrypoint: >
+      sh -c "
+        until mc alias set local http://minio:9000 minioadmin minioadmin; do sleep 1; done &&
+        mc mb --ignore-existing local/dvc-cache
+      "
+
+  # CLI/batch tooling (no HTTP server yet), invoked on demand once DVC stages
+  # exist — not part of the default `docker compose up`, so it never affects
+  # the one-command app+MariaDB+MinIO startup:
+  #   docker compose --profile pipeline run --rm pipeline <command>
+  pipeline:
+    build: ./pipeline
+    profiles: ["pipeline"]
+    depends_on:
+      mariadb:
+        condition: service_healthy
+      minio:
+        condition: service_started
+      minio-init:
+        condition: service_completed_successfully
+    environment:
+      DB_HOST: mariadb
+      DB_PORT: 3306
+      DB_USER: root
+      DB_PASSWORD: password
+      DB_NAME: image_repo
+      OBJECT_STORE_ENDPOINT_URL: http://minio:9000
+      OBJECT_STORE_ACCESS_KEY: minioadmin
+      OBJECT_STORE_SECRET_KEY: minioadmin
+      # Source bucket: where Tier 1 ingestion reads the raw Proyecto 1 dataset
+      # from (same bucket `backend` uploads into, above). NOT the dvc-cache /
+      # dataset-releases buckets from the DVC/Terraform ticket (Sections 6/9)
+      # — those are for versioning pipeline outputs, a different role.
+      OBJECT_STORE_BUCKET: image-annotations
+      OBJECT_STORE_REGION: us-east-1
+      OBJECT_STORE_USE_SSL: "false"
+      QUALITY_GATE_CONFIG_PATH: quality.yaml
+      # dvc-s3 authenticates via its own boto3 install (isolated venv, see
+      # pipeline/Dockerfile) — it reads these standard AWS SDK env var names
+      # directly, not the app's own OBJECT_STORE_* Settings fields above,
+      # which only the Python app code (not the separate `dvc` binary) reads.
+      AWS_ACCESS_KEY_ID: minioadmin
+      AWS_SECRET_ACCESS_KEY: minioadmin
+    volumes:
+      # Corrección de revisión (PM, PR de APP-10): sin este volumen, `dvc
+      # repro` escribe data/interim/*.json (quality.json, splits.json,
+      # versions.json...) SOLO dentro del contenedor efímero -- se destruye
+      # al salir, y ni `backend` ni `copilot` (que sí montan
+      # pipeline/data/interim, ver arriba) llegan a ver nunca esos datos
+      # reales en un clon limpio. Monta todo `data/`, no solo `interim/`,
+      # por dos razones: (1) `release` también lee y reescribe
+      # data/version_history.json (el ledger de releases, versionado en
+      # git, fuera de interim/) vía `--history`, y sin este volumen esa
+      # escritura también se perdería; (2) `dvc pull` escribe el dataset
+      # crudo en data/raw/coco-dataset.json -- persistirlo en el host evita
+      # tener que volver a descargarlo en cada `dvc repro`. Es lectura +
+      # escritura (a diferencia del `:ro` de `backend`/`copilot`): este es
+      # el único servicio que de verdad produce estos archivos.
+      - ./pipeline/data:/app/data
+
+volumes:
+  mariadb_data:
+  minio_data:

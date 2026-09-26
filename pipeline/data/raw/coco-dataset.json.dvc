@@ -1,0 +1,6 @@
+outs:
+- md5: 0ac4ecdbbd5a9b3144624ec86009b9e7
+  size: 345858
+  isexec: true
+  hash: md5
+  path: coco-dataset.json

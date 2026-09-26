@@ -1,0 +1,32 @@
+{
+  "current_version": "v0.2.0-mock",
+  "versions": [
+    {
+      "version": "v0.1.0-mock",
+      "released_at": "2026-08-20T10:00:00Z",
+      "content_hash": "sha256:mock1111111111111111111111111111111111111111111111111111111111",
+      "quality_status": "pass",
+      "environments": {
+        "dev": { "provider": "minio", "status": "synced", "synced_at": "2026-08-20T10:05:00Z" },
+        "prod": { "provider": "s3", "status": "not_promoted", "synced_at": null }
+      },
+      "diff_from_previous": null
+    },
+    {
+      "version": "v0.2.0-mock",
+      "released_at": "2026-09-10T09:30:00Z",
+      "content_hash": "sha256:mock2222222222222222222222222222222222222222222222222222222222",
+      "quality_status": "fail",
+      "environments": {
+        "dev": { "provider": "minio", "status": "synced", "synced_at": "2026-09-10T09:32:00Z" },
+        "prod": { "provider": "s3", "status": "blocked_by_quality_gate", "synced_at": null }
+      },
+      "diff_from_previous": {
+        "images_added": 187,
+        "boxes_added": 402,
+        "classes_left_minimum": ["bicycle"],
+        "small_object_ratio_change_pct": 2.1
+      }
+    }
+  ]
+}

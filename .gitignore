@@ -1,0 +1,65 @@
+# Dependencias y artefactos de compilación (en cualquier paquete)
+node_modules/
+dist/
+build/
+
+# Variables de entorno: se ignora cualquier .env real, pero se versionan
+# las plantillas de ejemplo.
+.env
+.env.*
+!.env.example
+!.env.production.example
+
+# Logs y archivos del sistema
+*.log
+npm-debug.log*
+.DS_Store
+Thumbs.db
+
+# Caché de herramientas
+.vite/
+coverage/
+
+# Python (pipeline/)
+__pycache__/
+*.pyc
+.venv/
+.ruff_cache/
+.pytest_cache/
+*.egg-info/
+
+# Terraform (infra/) — provider caches and state, never versioned.
+# .terraform.lock.hcl is NOT ignored: it's meant to be committed.
+**/.terraform/
+*.tfstate
+*.tfstate.*
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+
+# terraform plan/show output — can echo real resource attribute values,
+# never a build artifact worth versioning.
+*.tfplan
+tfplan
+tfplan_*
+plan.json
+*_override.tf
+*_override.tf.json
+*.tfvars
+*.tfvars.json
+
+# DVC (pipeline/) — .dvc/cache and .dvc/tmp are always local-only. The actual
+# dataset/intermediate files under data/raw and data/interim are excluded by
+# DVC's own auto-generated .gitignore files inside those directories (created
+# by `dvc add`/`dvc repro`), not here — a blanket rule here would also hide
+# the *.dvc pointer files and dvc.lock outputs that DO need to be tracked.
+pipeline/.dvc/cache/
+pipeline/.dvc/tmp/
+
+# Bundle de datos del release v1.0.0 (~496 MiB), que `scripts/restore-env.sh`
+# baja desde GitHub Releases para poblar MinIO y MariaDB en un clon limpio.
+# Es un asset del release, no contenido del repo: el rubro exige que el dataset
+# NO viva en git, y esto lo mantiene fuera aunque alguien lo extraiga aquí.
+.dq-env-bundle/
+.dq-env-bundle.zip

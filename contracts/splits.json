@@ -1,0 +1,23 @@
+{
+  "dataset_version": "v0.2.0-mock",
+  "generated_at": "2026-09-15T22:12:00Z",
+  "seed": 42,
+  "proportions": { "train": 0.70, "val": 0.15, "test": 0.15 },
+  "tolerance": 0.02,
+  "totals": { "images": 1520, "train": 1064, "val": 228, "test": 228 },
+  "class_distribution": {
+    "train": { "car": 629, "bicycle": 150, "traffic_light": 188 },
+    "val": { "car": 135, "bicycle": 32, "traffic_light": 40 },
+    "test": { "car": 135, "bicycle": 32, "traffic_light": 40 }
+  },
+  "leakage_check": {
+    "status": "pass",
+    "leaked_pairs": 0,
+    "near_duplicate_pairs_checked": 2,
+    "near_duplicate_pairs_same_split": 2
+  },
+  "reproducibility_check": {
+    "status": "pass",
+    "note": "Two runs with seed=42 produced identical image_id assignments per split."
+  }
+}

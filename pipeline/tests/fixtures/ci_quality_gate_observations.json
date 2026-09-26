@@ -1,0 +1,8 @@
+{
+  "min_images_per_class": 400,
+  "class_imbalance": 1.2,
+  "small_objects": 5.0,
+  "duplicates": 0,
+  "invalid_boxes": 0,
+  "spatial_bias": 20.0
+}

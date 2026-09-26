@@ -1,0 +1,82 @@
+name: Pipeline CI
+
+on:
+  push:
+    paths:
+      - "pipeline/**"
+      - ".github/workflows/pipeline-ci.yml"
+  pull_request:
+    paths:
+      - "pipeline/**"
+      - ".github/workflows/pipeline-ci.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        working-directory: pipeline
+        run: pip install --require-hashes -r requirements.txt -r requirements-dev.txt
+
+      - name: ruff check
+        working-directory: pipeline
+        run: ruff check .
+
+      - name: ruff format --check
+        working-directory: pipeline
+        run: ruff format --check .
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        working-directory: pipeline
+        run: pip install --require-hashes -r requirements.txt -r requirements-dev.txt
+
+      - name: pytest
+        working-directory: pipeline
+        run: pytest
+
+  quality-gate:
+    needs: [lint, test]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        working-directory: pipeline
+        run: pip install --require-hashes -r requirements.txt
+
+      # Runs the real Quality Gate engine (quality_gate/runner.py) against a
+      # small, fixed fixture — not the real dataset, which is DVC-tracked and
+      # not available to CI without wiring MinIO credentials into a public
+      # workflow. This still proves the gate mechanism itself: a real policy
+      # evaluation, a real pass/fail exit code, no fixture pretending to be
+      # actual data.
+      - name: Run Quality Gate against CI fixture observations
+        working-directory: pipeline
+        run: |
+          PYTHONPATH=src python -m dataset_quality.quality_gate.runner \
+            --policy quality.yaml \
+            --observations tests/fixtures/ci_quality_gate_observations.json \
+            --dataset-version ci-fixture \
+            --report /tmp/ci-quality-gate-report.json
