@@ -7,9 +7,12 @@ Order of operations, and why:
 2. Resolve every needed ``storage_key`` in one query, then decode each image exactly
    once and render all of its crops from that single decode. Nothing is fetched for an
    image whose target-class boxes were all rejected beforehand.
-3. Write the PNGs, then the manifest and the exclusions report. ``crops/`` is wiped
-   first so the directory can never disagree with the manifest that describes it, and
-   the JSON is written last so a failed run leaves no artifact claiming success.
+3. Build the entire run -- PNGs, count invariants, JSON serialization -- under temporary
+   sibling paths on the same filesystem as the final outputs, and publish the three
+   outputs only once all of that has succeeded. ``crops/`` is therefore never a partial
+   tree: a run that dies before publication (a missing object, an undecodable image, a
+   failed invariant, a broken serialization) leaves the previously published artifacts
+   byte-for-byte as they were, and removes its own temporaries.
 
 No timestamp is recorded anywhere: T3-1.1 requires two runs over equal inputs to be
 byte-identical, which a ``generated_at`` field would break.
@@ -20,7 +23,9 @@ from __future__ import annotations
 import hashlib
 import io
 import json
+import os
 import shutil
+import uuid
 from collections import Counter
 from collections.abc import Iterator, Sequence
 from contextlib import contextmanager
@@ -81,7 +86,9 @@ def generate_crops(
     Raises ``CropCocoStructureError`` / ``CropConfigurationError`` for a document that
     cannot be planned at all, ``CropSourceUnavailableError`` when a source image's row
     or object is missing, and ``CropSourceDecodeError`` when its bytes are not an image.
-    None of those leave a manifest behind.
+    Everything is built under temporary siblings and published only once the whole run
+    has succeeded, so such a failure leaves whatever was published before untouched --
+    and on a first run publishes nothing at all.
     """
 
     coco_bytes = coco_path.read_bytes()
@@ -97,93 +104,171 @@ def generate_crops(
             f"(e.g. {missing_keys[:5]})"
         )
 
-    _reset_crops_root(crops_root)
-    crops: list[CropRecord] = []
-    exclusions: list[CropExclusion] = list(plan.exclusions)
-    mismatches: list[DimensionMismatch] = []
-    written: list[Path] = []
+    token = uuid.uuid4().hex
+    staged_crops = _staging_sibling(crops_root, token)
+    staged_manifest = _staging_sibling(manifest_path, token)
+    staged_exclusions = _staging_sibling(exclusions_path, token)
 
-    for image_id in sorted(crops_by_image):
-        image = plan.images[image_id]
-        data = source_store.read_bytes(storage_keys[image_id])
-        with _open_source_image(data, image_id) as observed:
-            mismatch = (observed.width, observed.height) != (image.width, image.height)
-            if mismatch:
-                mismatches.append(
-                    DimensionMismatch(
-                        image_id=image_id,
-                        declared_width=image.width,
-                        declared_height=image.height,
-                        observed_width=observed.width,
-                        observed_height=observed.height,
-                    )
-                )
-            for crop in crops_by_image[image_id]:
-                if mismatch and not fits_observed_bounds(
-                    crop.bbox, width=observed.width, height=observed.height
-                ):
-                    exclusions.append(
-                        _excluded_target_crop(
-                            crop, image, ["real_dimension_mismatch", "exceeds_real_image_bounds"]
+    try:
+        staged_crops.mkdir(parents=True, exist_ok=True)
+        crops: list[CropRecord] = []
+        exclusions: list[CropExclusion] = list(plan.exclusions)
+        mismatches: list[DimensionMismatch] = []
+        written: list[Path] = []
+
+        for image_id in sorted(crops_by_image):
+            image = plan.images[image_id]
+            data = source_store.read_bytes(storage_keys[image_id])
+            with _open_source_image(data, image_id) as observed:
+                mismatch = (observed.width, observed.height) != (image.width, image.height)
+                if mismatch:
+                    mismatches.append(
+                        DimensionMismatch(
+                            image_id=image_id,
+                            declared_width=image.width,
+                            declared_height=image.height,
+                            observed_width=observed.width,
+                            observed_height=observed.height,
                         )
                     )
-                    continue
+                for crop in crops_by_image[image_id]:
+                    if mismatch and not fits_observed_bounds(
+                        crop.bbox, width=observed.width, height=observed.height
+                    ):
+                        exclusions.append(
+                            _excluded_target_crop(
+                                crop,
+                                image,
+                                ["real_dimension_mismatch", "exceeds_real_image_bounds"],
+                            )
+                        )
+                        continue
 
-                bounds = integer_crop_bounds(crop.bbox)
-                _require_bounds_within_grid(bounds, observed.width, observed.height)
-                png = _png_for_region(observed, bounds)
-                crop_path = crops_root / crop.category_name / f"{crop.annotation_id}.png"
-                crop_path.parent.mkdir(parents=True, exist_ok=True)
-                crop_path.write_bytes(png)
-                written.append(crop_path)
-                crops.append(
-                    CropRecord(
-                        annotation_id=crop.annotation_id,
-                        source_image_id=crop.image_id,
-                        source_file_name=image.file_name,
-                        category_id=crop.category_id,
-                        category_name=crop.category_name,
-                        bbox=crop.bbox,
-                        x_min=bounds.x_min,
-                        y_min=bounds.y_min,
-                        x_max=bounds.x_max,
-                        y_max=bounds.y_max,
-                        crop_width=bounds.width,
-                        crop_height=bounds.height,
-                        source_image_width=image.width,
-                        source_image_height=image.height,
-                        observed_image_width=observed.width,
-                        observed_image_height=observed.height,
-                        relative_path=crop_path.as_posix(),
-                        png_sha256=hashlib.sha256(png).hexdigest(),
+                    bounds = integer_crop_bounds(crop.bbox)
+                    _require_bounds_within_grid(bounds, observed.width, observed.height)
+                    png = _png_for_region(observed, bounds)
+                    # The published path is what the manifest names, never the staging
+                    # path: the staging names are an implementation detail of this run.
+                    crop_path = crops_root / crop.category_name / f"{crop.annotation_id}.png"
+                    staged_path = staged_crops / crop.category_name / f"{crop.annotation_id}.png"
+                    staged_path.parent.mkdir(parents=True, exist_ok=True)
+                    staged_path.write_bytes(png)
+                    written.append(crop_path)
+                    crops.append(
+                        CropRecord(
+                            annotation_id=crop.annotation_id,
+                            source_image_id=crop.image_id,
+                            source_file_name=image.file_name,
+                            category_id=crop.category_id,
+                            category_name=crop.category_name,
+                            bbox=crop.bbox,
+                            x_min=bounds.x_min,
+                            y_min=bounds.y_min,
+                            x_max=bounds.x_max,
+                            y_max=bounds.y_max,
+                            crop_width=bounds.width,
+                            crop_height=bounds.height,
+                            source_image_width=image.width,
+                            source_image_height=image.height,
+                            observed_image_width=observed.width,
+                            observed_image_height=observed.height,
+                            relative_path=crop_path.as_posix(),
+                            png_sha256=hashlib.sha256(png).hexdigest(),
+                        )
                     )
-                )
 
-    crops.sort(key=lambda record: (record.category_id, record.annotation_id))
-    exclusions.sort(key=exclusion_sort_key)
-    mismatches.sort(key=lambda mismatch: mismatch.image_id)
-    summary = _summarise(plan, crops, exclusions, mismatches)
+        crops.sort(key=lambda record: (record.category_id, record.annotation_id))
+        exclusions.sort(key=exclusion_sort_key)
+        mismatches.sort(key=lambda mismatch: mismatch.image_id)
+        summary = _summarise(plan, crops, exclusions, mismatches)
 
-    manifest = CropManifest(
-        dataset_version=dataset_version,
-        coco_file_name=coco_path.name,
-        coco_sha256=coco_sha256,
-        target_categories=list(plan.target_categories),
-        summary=summary,
-        dimension_mismatches=mismatches,
-        crops=crops,
+        manifest = CropManifest(
+            dataset_version=dataset_version,
+            coco_file_name=coco_path.name,
+            coco_sha256=coco_sha256,
+            target_categories=list(plan.target_categories),
+            summary=summary,
+            dimension_mismatches=mismatches,
+            crops=crops,
+        )
+        exclusions_report = CropExclusionsReport(
+            dataset_version=dataset_version,
+            coco_file_name=coco_path.name,
+            coco_sha256=coco_sha256,
+            target_categories=list(plan.target_categories),
+            summary=summary,
+            exclusions=exclusions,
+        )
+        # Both artifacts are serialized into the staging paths as well: a run only
+        # becomes "written" once every count adds up and every byte is serialized.
+        _write_json(staged_manifest, manifest.model_dump_json(indent=2))
+        _write_json(staged_exclusions, exclusions_report.model_dump_json(indent=2))
+    except BaseException:
+        # Nothing was published yet, so the previous release is still intact on disk:
+        # drop this run's temporaries and let the failure surface unchanged.
+        _discard(staged_crops, staged_manifest, staged_exclusions)
+        raise
+
+    _publish(
+        token=token,
+        crops_root=crops_root,
+        manifest_path=manifest_path,
+        exclusions_path=exclusions_path,
     )
-    exclusions_report = CropExclusionsReport(
-        dataset_version=dataset_version,
-        coco_file_name=coco_path.name,
-        coco_sha256=coco_sha256,
-        target_categories=list(plan.target_categories),
-        summary=summary,
-        exclusions=exclusions,
-    )
-    _write_json(manifest_path, manifest.model_dump_json(indent=2))
-    _write_json(exclusions_path, exclusions_report.model_dump_json(indent=2))
     return CropRunResult(manifest=manifest, exclusions=exclusions_report, written=tuple(written))
+
+
+def _staging_sibling(target: Path, token: str) -> Path:
+    """The temporary sibling of ``target``, on its own filesystem so publishing is a move."""
+
+    return target.with_name(f".{target.name}.staging-{token}")
+
+
+def _discard(*paths: Path) -> None:
+    """Remove staged paths that were never published -- trees, files or nothing at all."""
+
+    for path in paths:
+        if path.is_dir():
+            shutil.rmtree(path, ignore_errors=True)
+        else:
+            path.unlink(missing_ok=True)
+
+
+def _publish(*, token: str, crops_root: Path, manifest_path: Path, exclusions_path: Path) -> None:
+    """Replace the three published outputs with this run's fully built staged copies.
+
+    ``crops/`` is swapped first and the JSON last, so the manifest is never newer than
+    the tree it describes: a run interrupted between the two steps keeps the previous
+    release's manifest -- a true statement about a release that is still on disk --
+    instead of one claiming crops that were never published.
+    """
+
+    staged_crops = _staging_sibling(crops_root, token)
+    staged_manifest = _staging_sibling(manifest_path, token)
+    staged_exclusions = _staging_sibling(exclusions_path, token)
+    try:
+        _swap_directory(staged_crops, crops_root, token)
+        os.replace(staged_manifest, manifest_path)
+        os.replace(staged_exclusions, exclusions_path)
+    finally:
+        _discard(staged_crops, staged_manifest, staged_exclusions)
+
+
+def _swap_directory(staged: Path, target: Path, token: str) -> None:
+    """Move ``staged`` onto ``target``, keeping the old tree until the move succeeded."""
+
+    previous: Path | None = None
+    if target.exists():
+        previous = target.with_name(f".{target.name}.previous-{token}")
+        os.rename(target, previous)
+    try:
+        os.rename(staged, target)
+    except OSError:
+        if previous is not None:
+            os.rename(previous, target)
+        raise
+    if previous is not None:
+        shutil.rmtree(previous, ignore_errors=True)
 
 
 def _load_raw_coco(coco_bytes: bytes, coco_path: Path) -> Any:
@@ -200,14 +285,6 @@ def _load_raw_coco(coco_bytes: bytes, coco_path: Path) -> Any:
     if not isinstance(payload, dict):
         raise CropCocoStructureError(f"{coco_path} must contain a top-level JSON object")
     return payload
-
-
-def _reset_crops_root(crops_root: Path) -> None:
-    """Recreate ``crops_root`` empty, so the tree always matches the manifest."""
-
-    if crops_root.exists():
-        shutil.rmtree(crops_root)
-    crops_root.mkdir(parents=True, exist_ok=True)
 
 
 @contextmanager

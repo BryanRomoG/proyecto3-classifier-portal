@@ -6,7 +6,8 @@ invalid boxes become stable exclusion records instead of aborting the run,
 non-target categories are ignored rather than reported as invalid, declared-vs-observed
 image dimensions are reconciled explicitly, and unresolvable sources (missing DB row,
 missing object, undecodable bytes) fail loudly instead of silently producing a partial
-dataset.
+dataset: because the three outputs are published only once the whole run has succeeded,
+a failed run leaves the previously published artifacts exactly as they were.
 
 MariaDB and the object store are always exercised through in-memory doubles here: this
 suite needs no Docker, no MinIO and no network.
@@ -758,6 +759,8 @@ def test_corrupt_source_image_fails_visibly_and_writes_no_artifacts(
 
     assert not MANIFEST_PATH.exists()
     assert not EXCLUSIONS_PATH.exists()
+    # Nothing was published at all: the crops tree never even appears.
+    assert not CROPS_ROOT.exists()
 
 
 def test_source_without_a_storage_key_fails_instead_of_key_erroring(
@@ -850,6 +853,94 @@ def test_stale_crop_files_are_removed_so_the_tree_matches_the_manifest(
     assert [path.relative_to(CROPS_ROOT).as_posix() for path in CROPS_ROOT.rglob("*.png")] == [
         "person/11.png"
     ]
+
+
+# ---------------------------------------------------------------------------
+# Atomic publication: a failed run never damages what is already published
+# ---------------------------------------------------------------------------
+
+
+def _staging_leftovers() -> list[str]:
+    """Every unpublished staging path left behind under ``data/processed``."""
+
+    root = Path("data/processed")
+    return [
+        path.relative_to(root).as_posix()
+        for path in sorted(root.rglob("*"))
+        if ".staging-" in path.name or ".previous-" in path.name
+    ]
+
+
+def test_failed_run_keeps_the_published_artifacts_byte_identical(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A run that dies mid-way must not replace the previous release in part.
+
+    Regression: ``crops/`` used to be wiped before the first image was fetched, so a
+    later run failing on a missing/corrupt object left a truncated crop tree behind
+    while ``crops_manifest.json`` and ``crop_exclusions.json`` still described the
+    previous release.
+    """
+
+    published_coco = _raw_coco(
+        images=[_image(7, 40, 30), _image(8, 40, 30)],
+        categories=[{"id": 1, "name": "person"}, {"id": 2, "name": "car"}],
+        annotations=[
+            _annotation(11, 7, 1, [1, 1, 5, 5]),
+            _annotation(13, 8, 2, [4, 4, 6, 6]),
+        ],
+    )
+    _generate(
+        monkeypatch,
+        tmp_path,
+        published_coco,
+        images={7: _gradient_image(40, 30), 8: _gradient_image(40, 30)},
+    )
+
+    published = _processed_bytes()
+    assert sorted(published) == [
+        "crop_exclusions.json",
+        "crops/car/13.png",
+        "crops/person/11.png",
+        "crops_manifest.json",
+    ]
+
+    # The second run would add a crop for image 7 and rewrite image 8's crop before
+    # reaching id=9, whose stored bytes cannot be decoded: image ids are processed in
+    # ascending order, so at least one other image is fully processed first.
+    failing_coco = _raw_coco(
+        images=[_image(7, 40, 30), _image(8, 40, 30), _image(9, 40, 30)],
+        categories=[{"id": 1, "name": "person"}, {"id": 2, "name": "car"}],
+        annotations=[
+            _annotation(11, 7, 1, [1, 1, 5, 5]),
+            _annotation(12, 7, 2, [8, 8, 6, 6]),
+            _annotation(13, 8, 2, [4, 4, 6, 6]),
+            _annotation(15, 9, 1, [1, 1, 5, 5]),
+        ],
+    )
+    corrupt_store = FakeSourceImageStore(
+        {
+            7: _png_bytes(_gradient_image(40, 30)),
+            8: _png_bytes(_gradient_image(40, 30)),
+            9: b"this is definitely not an image",
+        }
+    )
+
+    with pytest.raises(CropSourceDecodeError, match="id=9"):
+        _generate(monkeypatch, tmp_path, failing_coco, store=corrupt_store)
+
+    assert corrupt_store.byte_reads == ["images/7.png", "images/8.png", "images/9.png"]
+
+    # Every previously published artifact is untouched, byte for byte: no partial crop
+    # tree and no manifest that would disagree with it.
+    assert _processed_bytes() == published
+    # The crop the failing run had already rendered (image 7, annotation 12) was never
+    # published, and the manifest still describes the previous release.
+    assert not (CROPS_ROOT / "car" / "12.png").exists()
+    manifest = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
+    assert [crop["annotation_id"] for crop in manifest["crops"]] == [11, 13]
+    # The staging paths of the failed run are gone.
+    assert _staging_leftovers() == []
 
 
 # ---------------------------------------------------------------------------

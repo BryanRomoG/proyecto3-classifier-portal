@@ -41,8 +41,10 @@ actually decodes. Each crop record carries both pairs of dimensions
 source whose real size disagrees with COCO is visible instead of silently mis-cropped.
 
 Reproducibility: no timestamps, host paths or filesystem-dependent ordering are recorded,
-records are sorted by ids, and `crops/` is wiped and rebuilt on every run -- so a second run
-over the same COCO, params and stored objects produces byte-identical JSON and PNGs.
+records are sorted by ids, and the three outputs are staged next to their final paths and
+published only after the whole run succeeded -- so a second run over the same COCO, params
+and stored objects produces byte-identical JSON and PNGs, and a failed run never leaves a
+partial `crops/` tree next to the previous release's JSON.
 `pipeline/data/processed/.gitignore` lists the three artifacts only (all DVC outputs);
 `dvc.lock` and the stage definition stay tracked.
 
@@ -81,11 +83,18 @@ those are not per-box data problems.
 - Quality Gate `fail`: exit 1, no crops, no JSON.
 - A missing `images` row, a blank `storage_key`, an unreachable object or an undecodable
   image raises `CropSourceUnavailableError` / `CropSourceDecodeError`: the stage fails
-  visibly instead of reporting a smaller crop set. A failed run leaves neither
-  `crops_manifest.json` nor `crop_exclusions.json` behind.
-- The two JSON artifacts are written last, after re-checking the count invariants
-  (`crops + excluded_target_boxes == target_annotations`, and the total splitting into
-  target, ignored non-target and unresolvable annotations).
+  visibly instead of reporting a smaller crop set.
+- Nothing is published until the run is complete: the PNGs and both JSON artifacts are
+  built under temporary sibling paths inside `data/processed/`, and only then are the
+  three outputs replaced together (`crops/` first, the JSON last, so the manifest is
+  never newer than the tree it describes). A failed run therefore leaves the previous
+  release byte-for-byte as it was, and removes its own temporaries -- it never leaves a
+  partially regenerated `crops/` next to the previous manifest.
+- The manifest only ever records the final `data/processed/...` paths; the staging names
+  are an implementation detail of the run and never appear in an artifact.
+- The count invariants (`crops + excluded_target_boxes == target_annotations`, and the
+  total splitting into target, ignored non-target and unresolvable annotations) are
+  re-checked before anything is serialized or published.
 
 ### Needs a populated backend
 
