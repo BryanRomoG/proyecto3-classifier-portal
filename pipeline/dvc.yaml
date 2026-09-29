@@ -112,6 +112,43 @@ stages:
       - data/processed/crops_manifest.json
       - data/processed/crop_exclusions.json
 
+  classifier_split:
+    cmd: >-
+      PYTHONPATH=src python -m dataset_quality.classifier_splits
+      data/interim/coco.json
+      --crops-manifest data/processed/crops_manifest.json
+      --duplicate-pairs data/interim/duplicate_pairs.json
+      --dataset-version ${dataset_version}
+      --train ${classifier_split.train}
+      --val ${classifier_split.val}
+      --test ${classifier_split.test}
+      --seed ${classifier_split.seed}
+      --output data/processed/classifier_split_manifest.json
+    deps:
+      - data/interim/coco.json
+      - data/processed/crops_manifest.json
+      - data/interim/duplicate_pairs.json
+      - src/dataset_quality/classifier_splits/__init__.py
+      - src/dataset_quality/classifier_splits/__main__.py
+      - src/dataset_quality/classifier_splits/errors.py
+      - src/dataset_quality/classifier_splits/generator.py
+      - src/dataset_quality/classifier_splits/models.py
+      - src/dataset_quality/crops/models.py
+      - src/dataset_quality/splits/generator.py
+      - src/dataset_quality/splits/models.py
+      - src/dataset_quality/analyzers/m3.py
+      - src/dataset_quality/ingestion/models.py
+      - src/dataset_quality/quality_gate/models.py
+      - src/dataset_quality/config/models.py
+    params:
+      - dataset_version
+      - classifier_split.train
+      - classifier_split.val
+      - classifier_split.test
+      - classifier_split.seed
+    outs:
+      - data/processed/classifier_split_manifest.json
+
   split:
     cmd: >-
       PYTHONPATH=src python -m dataset_quality.splits

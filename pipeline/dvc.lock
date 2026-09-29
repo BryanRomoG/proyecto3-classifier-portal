@@ -412,3 +412,94 @@ stages:
       hash: md5
       md5: bba57fce80109aca3cf43f63961c4ea5
       size: 794015
+  classifier_split:
+    cmd: PYTHONPATH=src python -m dataset_quality.classifier_splits
+      data/interim/coco.json --crops-manifest data/processed/crops_manifest.json
+      --duplicate-pairs data/interim/duplicate_pairs.json --dataset-version
+      v1.0.0 --train 0.7 --val 0.2 --test 0.1 --seed 42 --output
+      data/processed/classifier_split_manifest.json
+    deps:
+    - path: data/interim/coco.json
+      hash: md5
+      md5: 9f9372956e21b889f5af1a8a3bf81c54
+      size: 345922
+    - path: data/interim/duplicate_pairs.json
+      hash: md5
+      md5: 4c61c7b84882e0b37b0fa8cf247220b8
+      size: 24
+    - path: data/processed/crops_manifest.json
+      hash: md5
+      md5: bba57fce80109aca3cf43f63961c4ea5
+      size: 794015
+    - path: src/dataset_quality/analyzers/m3.py
+      hash: md5
+      md5: 37ea57e403b0cabd0f1b9ff5223f1c9c
+      size: 5217
+      isexec: true
+    - path: src/dataset_quality/classifier_splits/__init__.py
+      hash: md5
+      md5: 66a6a76b2a79b0da9e78911dd1b1438f
+      size: 1337
+      isexec: true
+    - path: src/dataset_quality/classifier_splits/__main__.py
+      hash: md5
+      md5: 4b4ed19c11c48179cdaca50ab4727e68
+      size: 2282
+      isexec: true
+    - path: src/dataset_quality/classifier_splits/errors.py
+      hash: md5
+      md5: c8774bdb58af348248e050f898ee881c
+      size: 918
+      isexec: true
+    - path: src/dataset_quality/classifier_splits/generator.py
+      hash: md5
+      md5: 8f98b7d8e2c1eb49ed82707385d37fa8
+      size: 11812
+      isexec: true
+    - path: src/dataset_quality/classifier_splits/models.py
+      hash: md5
+      md5: 4939cc4b8fc8313c8eee35127a79617d
+      size: 3481
+      isexec: true
+    - path: src/dataset_quality/config/models.py
+      hash: md5
+      md5: cb67637170529b332936b4c1ec10322e
+      size: 1133
+      isexec: true
+    - path: src/dataset_quality/crops/models.py
+      hash: md5
+      md5: 202dbffd7cc41c25fd2186f5b90930bd
+      size: 4961
+      isexec: true
+    - path: src/dataset_quality/ingestion/models.py
+      hash: md5
+      md5: 2d737413b6518058b14d588f0aab934e
+      size: 3405
+      isexec: true
+    - path: src/dataset_quality/quality_gate/models.py
+      hash: md5
+      md5: e5ae22c59df639f5b0c8d0b5a6dc6178
+      size: 3304
+      isexec: true
+    - path: src/dataset_quality/splits/generator.py
+      hash: md5
+      md5: 1f3cc192858e257d50d8669b8addaaeb
+      size: 17863
+      isexec: true
+    - path: src/dataset_quality/splits/models.py
+      hash: md5
+      md5: b34996ceb589cd02700976610224ce03
+      size: 2274
+      isexec: true
+    params:
+      params.yaml:
+        classifier_split.seed: 42
+        classifier_split.test: 0.1
+        classifier_split.train: 0.7
+        classifier_split.val: 0.2
+        dataset_version: v1.0.0
+    outs:
+    - path: data/processed/classifier_split_manifest.json
+      hash: md5
+      md5: 8361fa6cb391cccd476de4b5a72b301e
+      size: 198050
