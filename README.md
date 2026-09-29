@@ -230,7 +230,12 @@ El pipeline reproducible vive en `pipeline/dvc.yaml`: `ingest → validate → a
 
 **Instalar DVC por separado**, no como parte de `requirements-dev.txt`: `dvc[s3]` trae `aiobotocore`, que exige un rango de `botocore` incompatible con el `boto3` ya fijado del pipeline — mezclarlos en el mismo lockfile rompe la resolución. Instálalo aislado (`pipx install "dvc[s3]"` es lo más simple) o en un entorno Python separado.
 
-**El remote DEV usa el hostname de Compose** (`http://minio:9000` en `.dvc/config`, ya versionado), así que `dvc repro`/`push`/`pull` necesitan correr donde ese hostname resuelva — dentro del profile `pipeline` de Compose, o en un contenedor conectado a la misma red (`docker network connect` / `--network proyecto-02-dataset-quality_default`).
+**El remote DEV usa el hostname de Compose** (`http://minio:9000` en `.dvc/config`, ya versionado), así que `dvc repro`/`push`/`pull` necesitan correr donde ese hostname resuelva — dentro del profile `pipeline` de Compose (ver abajo), o en un contenedor conectado a la red que Compose crea para este repositorio. Esa red se llama `<nombre-del-proyecto>_default` y **no** es un nombre fijo que se pueda escribir a mano: por defecto es el nombre de la carpeta del clon, o el de `COMPOSE_PROJECT_NAME` si lo fijas, así que conviene sacarlo del propio contenedor de `minio` en vez de hardcodearlo:
+
+```bash
+NET="$(docker inspect "$(docker compose ps -q minio)" --format '{{range $k,$v := .NetworkSettings.Networks}}{{$k}}{{end}}')"
+docker run --rm --network "$NET" <imagen> <comando>
+```
 
 **Dentro del profile `pipeline` de Compose, esto ya funciona sin pasos manuales**: el bucket `dvc-cache` lo crea el servicio `minio-init` (igual de profile-gated que `pipeline`, corre `mc mb --ignore-existing` una vez contra MinIO) y las credenciales llegan al binario `dvc` — que vive en su propio venv aislado dentro de la imagen, con su propio boto3, separado del `Settings`/`OBJECT_STORE_*` de la app — vía las variables estándar `AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY` ya seteadas en el `environment:` del servicio `pipeline`:
 

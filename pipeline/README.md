@@ -10,7 +10,9 @@ The `release` stage (`src/dataset_quality/versioning/__main__.py`) stamps each p
 
 - The dataset version (`params.yaml`'s `dataset_version`) must be `v<MAJOR>.<MINOR>.<PATCH>` — no prerelease suffixes.
 - The **first** release in the ledger must be exactly `v1.0.0`.
-- Every later release must be **strictly greater** (tuple comparison of MAJOR.MINOR.PATCH) than the last one recorded — the stage raises and refuses to run otherwise, rather than silently overwriting history.
+- A version **strictly greater** (tuple comparison of MAJOR.MINOR.PATCH) than the last one recorded appends exactly one new entry to the ledger and regenerates `data/interim/versions.json`.
+- A version **lower** than the last one recorded is rejected — the stage raises before writing anything.
+- Re-stamping the **same** version is allowed *only* as an idempotent no-op: when `content_hash`, `snapshot` and `quality_status` are all identical to the recorded release, the stage exits 0, appends nothing (the ledger is left byte-for-byte as it was) and regenerates `data/interim/versions.json` from it. That is what makes a `dvc repro` that re-runs `release` — because a dependency of the stage changed while the dataset itself did not — a no-op instead of a crash. The same version over *different* content, snapshot or gate status is rejected with an explicit error naming the field(s) that differ: bump `dataset_version` instead of silently overwriting history.
 
 ### Reading a `VersionDiff` — sign convention
 
