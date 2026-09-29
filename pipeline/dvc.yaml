@@ -79,6 +79,39 @@ stages:
     outs:
       - data/interim/quality.json
 
+  crop:
+    cmd: >-
+      PYTHONPATH=src python -m dataset_quality.crops
+      data/interim/coco.json
+      --quality-report data/interim/quality.json
+      --dataset-version ${dataset_version}
+      --category ${m3.target_categories[0]}
+      --category ${m3.target_categories[1]}
+      --crops-root data/processed/crops
+      --manifest-output data/processed/crops_manifest.json
+      --exclusions-output data/processed/crop_exclusions.json
+    deps:
+      - data/interim/coco.json
+      - data/interim/quality.json
+      - src/dataset_quality/crops/__init__.py
+      - src/dataset_quality/crops/__main__.py
+      - src/dataset_quality/crops/errors.py
+      - src/dataset_quality/crops/generator.py
+      - src/dataset_quality/crops/geometry.py
+      - src/dataset_quality/crops/models.py
+      - src/dataset_quality/crops/planning.py
+      - src/dataset_quality/crops/sources.py
+      - src/dataset_quality/config/clients.py
+      - src/dataset_quality/config/settings.py
+      - src/dataset_quality/storage/object_store.py
+    params:
+      - dataset_version
+      - m3.target_categories
+    outs:
+      - data/processed/crops
+      - data/processed/crops_manifest.json
+      - data/processed/crop_exclusions.json
+
   split:
     cmd: >-
       PYTHONPATH=src python -m dataset_quality.splits
