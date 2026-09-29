@@ -1,6 +1,6 @@
 # pipeline/
 
-Python 3.12 DVC pipeline: `ingest → validate → analyze → quality_gate → crop → split → release`, where `crop` is the T3-1.1 stage (see "COCO crops (T3-1.1)") that feeds the classifier. See `dvc.yaml` for the full stage graph and `docs/` (repo root) for the Data Quality baseline audits.
+Python 3.12 DVC pipeline: `ingest → validate → analyze → quality_gate → crop → classifier_split → split → release`, where `crop` is the T3-1.1 stage (see "COCO crops (T3-1.1)") that feeds the classifier, and `classifier_split` is the T3-1.2 stage (see "Classifier split manifest (T3-1.2)") that groups those crops leak-free into a *new* 70/20/10 manifest. See `dvc.yaml` for the full stage graph and `docs/` (repo root) for the Data Quality baseline audits.
 
 ## COCO crops (T3-1.1)
 
@@ -104,6 +104,49 @@ the matching object in the source bucket (`object_store_bucket`, default `image-
 COCO image ids are the backend's `images.id` -- the same relation the `analyze` stage already
 relies on. On a clean clone, populate both with `./scripts/restore-env.sh` (repo root) before
 running the stage; without that data it fails loudly rather than emitting a partial crop set.
+
+## Classifier split manifest (T3-1.2)
+
+The `classifier_split` stage (`src/dataset_quality/classifier_splits/`) builds the **new**
+70/20/10 manifest for the classifier crops. It does not replace or modify the inherited
+`split` stage: `params.yaml`'s `split` block (0.70/0.15/0.15) and its outputs stay exactly
+as they were. The grouping algorithm is not reimplemented either — the canonical COCO, a
+`SplitConfig(classifier_split.train, val, test, seed)` and `duplicate_pairs.json` are
+handed to the inherited `dataset_quality.splits.generate_splits`, which keeps every image
+and every transitive duplicate component in a single split. Each `crops_manifest.json`
+record is then placed in the split of its `source_image_id`, so each source image and each
+crop appears exactly once and no group can cross train/val/test.
+
+```bash
+# from pipeline/, after `crop` has produced data/processed/crops_manifest.json
+PYTHONPATH=src dvc repro classifier_split
+
+# the stage's own command, verbatim
+PYTHONPATH=src python -m dataset_quality.classifier_splits \
+  data/interim/coco.json \
+  --crops-manifest data/processed/crops_manifest.json \
+  --duplicate-pairs data/interim/duplicate_pairs.json \
+  --dataset-version v1.0.0 \
+  --train 0.70 --val 0.20 --test 0.10 --seed 42 \
+  --output data/processed/classifier_split_manifest.json
+```
+
+### What it validates and produces
+
+Before generating anything, the stage refuses inputs that do not provably describe each
+other: the crops manifest's `dataset_version` must match, its `coco_sha256` must equal the
+SHA-256 of the canonical COCO file, every crop must reference an image the COCO declares,
+and both `annotation_id` and `relative_path` must be unique. A `duplicate_pairs.json` entry
+pointing at an unknown image id fails inside the inherited generator itself. After
+generating, it also re-checks that the assignment is an exact partition and that zero
+duplicate pairs leaked across splits.
+
+`data/processed/classifier_split_manifest.json` is deterministic — no timestamps, no
+absolute paths, ids sorted — and records: the SHA-256 provenance of all three inputs, the
+seed, the 70/20/10 proportions, the ordered `image_ids` and crops per split, image/crop
+counts per split and category, and the leakage result (pairs checked, zero leaked). It
+never reads or exposes any model prediction or metric. `pipeline/data/processed/.gitignore`
+lists this artifact only; `dvc.lock` and the stage definition stay tracked.
 
 ## Dataset release & versioning (OPS-07)
 

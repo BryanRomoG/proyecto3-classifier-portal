@@ -1,5 +1,6 @@
-# DVC stage outputs under data/processed/ (dvc.yaml's `crop` stage): only the
-# artifacts are ignored, never dvc.lock or the stage definition itself.
+# DVC stage outputs under data/processed/ (dvc.yaml's `crop` and `classifier_split`
+# stages): only the artifacts are ignored, never dvc.lock or the stage definitions.
 /crops
 /crops_manifest.json
 /crop_exclusions.json
+/classifier_split_manifest.json

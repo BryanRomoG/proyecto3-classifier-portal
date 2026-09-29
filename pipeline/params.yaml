@@ -16,3 +16,11 @@ split:
   val: 0.15
   test: 0.15
   seed: 42
+
+# T3-1.2: proportions of the NEW leak-free manifest for the classifier crops.
+# Independent from `split` above, which stays the inherited 70/15/15 image split.
+classifier_split:
+  train: 0.70
+  val: 0.20
+  test: 0.10
+  seed: 42
