@@ -6,10 +6,17 @@ small git-tracked ledger, `pipeline/data/version_history.json` (`VersionHistory`
 release to diff against. Deliberately kept out of `dvc.yaml`'s deps/outs: see
 `versioning.models.VersionHistory`'s docstring for why.
 
-The first release in the ledger must be exactly `v1.0.0`; every later stamped version
-must be strictly greater (MAJOR.MINOR.PATCH tuple order) than the last recorded one, or
-this fails loud rather than silently overwriting history — same "crash you notice beats
-a false pass you don't" discipline as OPS-04's `DuplicateBytesUnavailableError`.
+The first release in the ledger must be exactly `v1.0.0`. Every later stamped version is
+compared (MAJOR.MINOR.PATCH tuple order) against the last recorded one:
+
+- strictly greater: appends exactly one new ledger entry;
+- the same version *and* the same release — identical `content_hash`, `snapshot` and
+  `quality_status` — is an idempotent no-op: nothing is appended and only the derived
+  `versions.json` is regenerated, so a `dvc repro` that re-runs `release` because one of
+  its deps changed while the dataset itself did not exits 0 instead of failing;
+- the same version over different content, or a version lower than the last one, fails
+  loud rather than silently overwriting history — same "crash you notice beats a false
+  pass you don't" discipline as OPS-04's `DuplicateBytesUnavailableError`.
 
 Sign convention for `VersionDiff` (`copilot/contracts.py`) — see `pipeline/README.md`'s
 "Dataset release & versioning" section for the full human-readable version of this:
@@ -97,6 +104,39 @@ def _diff(
     )
 
 
+def _release_differences(
+    recorded: VersionHistoryEntry,
+    *,
+    content_hash: str,
+    snapshot: VersionSnapshot,
+    quality_status: str,
+) -> list[str]:
+    """Which identity fields of the recorded release a re-stamp of the same version changes.
+
+    An empty list means the run *is* the already-recorded release — the only case where
+    stamping a version that is already in the ledger is allowed.
+    """
+    differences = []
+    if recorded.entry.content_hash != content_hash:
+        differences.append("content_hash")
+    if recorded.snapshot != snapshot:
+        differences.append("snapshot")
+    if recorded.entry.quality_status != quality_status:
+        differences.append("quality_status")
+    return differences
+
+
+def _write_report(output: Path, history: VersionHistory, current_version: str) -> None:
+    """Write (and echo) `versions.json`, the derived artifact for the whole ledger."""
+    report = VersionsReport(
+        current_version=current_version,
+        versions=[history_entry.entry for history_entry in history.entries],
+    )
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text(report.model_dump_json(indent=2), encoding="utf-8")
+    print(report.model_dump_json(indent=2))
+
+
 def main() -> None:
     parser = ArgumentParser(description="Assemble the dataset version record.")
     parser.add_argument("--coco", type=Path, required=True, help="Canonicalized COCO JSON")
@@ -115,16 +155,19 @@ def main() -> None:
 
     current_version = _parse_semver(args.dataset_version)
     history = _load_history(args.history)
+    recorded = history.entries[-1] if history.entries else None
+    recorded_version = _parse_semver(recorded.entry.version) if recorded is not None else None
 
-    if history.entries:
-        previous_version = _parse_semver(history.entries[-1].entry.version)
-        if current_version <= previous_version:
+    if recorded_version is None:
+        if current_version != (1, 0, 0):
             raise ValueError(
-                f"dataset version {args.dataset_version!r} must be strictly greater than "
-                f"the last released version {history.entries[-1].entry.version!r}"
+                f"the first dataset release must be v1.0.0, got {args.dataset_version!r}"
             )
-    elif current_version != (1, 0, 0):
-        raise ValueError(f"the first dataset release must be v1.0.0, got {args.dataset_version!r}")
+    elif current_version < recorded_version:
+        raise ValueError(
+            f"dataset version {args.dataset_version!r} must be strictly greater than "
+            f"the last released version {recorded.entry.version!r}"
+        )
 
     quality_report = json.loads(args.quality_report.read_text(encoding="utf-8"))
     if quality_report["overall_status"] == "fail":
@@ -141,36 +184,57 @@ def main() -> None:
     min_images_threshold = policy.checks["min_images_per_class"].threshold
 
     snapshot = _snapshot_from(m3_baseline, observations)
-    diff = (
-        _diff(snapshot, history.entries[-1].snapshot, min_images_threshold)
-        if history.entries
-        else None
-    )
+    content_hash = source_sha256(args.coco)
+    quality_status = quality_report["overall_status"]
+
+    if recorded is not None and current_version == recorded_version:
+        # Same version as the last release: only the *same release* is allowed
+        # through, as a no-op (see the module docstring). Anything else would be
+        # exactly the history overwrite this ledger exists to prevent.
+        differences = _release_differences(
+            recorded,
+            content_hash=content_hash,
+            snapshot=snapshot,
+            quality_status=quality_status,
+        )
+        if differences:
+            raise ValueError(
+                f"dataset version {args.dataset_version!r} is already recorded but this run "
+                f"would change its {', '.join(differences)}: a re-release with different "
+                "content is not allowed — bump `dataset_version` in params.yaml instead of "
+                "overwriting history"
+            )
+        print(
+            f"[release] {args.dataset_version} is already recorded with the same content_hash, "
+            f"snapshot and quality_status: nothing appended to {args.history.name}, "
+            "versions.json regenerated.",
+            file=sys.stderr,
+        )
+        _write_report(args.output, history, args.dataset_version)
+        return
 
     now = datetime.now(UTC)
     entry = DatasetVersionEntry(
         version=args.dataset_version,
         released_at=now,
-        content_hash=source_sha256(args.coco),
-        quality_status=quality_report["overall_status"],
+        content_hash=content_hash,
+        quality_status=quality_status,
         environments=VersionEnvironments(
             dev=EnvironmentStatus(provider="minio", status="available", synced_at=now),
             prod=EnvironmentStatus(provider="s3", status="pending", synced_at=None),
         ),
-        diff_from_previous=diff,
+        diff_from_previous=(
+            _diff(snapshot, recorded.snapshot, min_images_threshold)
+            if recorded is not None
+            else None
+        ),
     )
 
     history.entries.append(VersionHistoryEntry(entry=entry, snapshot=snapshot))
     args.history.parent.mkdir(parents=True, exist_ok=True)
     args.history.write_text(history.model_dump_json(indent=2), encoding="utf-8")
 
-    report = VersionsReport(
-        current_version=args.dataset_version,
-        versions=[history_entry.entry for history_entry in history.entries],
-    )
-    args.output.parent.mkdir(parents=True, exist_ok=True)
-    args.output.write_text(report.model_dump_json(indent=2), encoding="utf-8")
-    print(report.model_dump_json(indent=2))
+    _write_report(args.output, history, args.dataset_version)
 
 
 if __name__ == "__main__":

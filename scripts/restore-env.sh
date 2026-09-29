@@ -11,9 +11,13 @@
 # El bundle NO vive en git (son ~496 MiB): es un asset del release, y lo que se
 # extrae queda bajo .dq-env-bundle/, ignorado por .gitignore.
 #
-# Requisitos: bash, curl, y unzip o python3. El stack debe estar levantado
-# (`docker compose up -d --build`) antes de correr esto: el restore escribe en
-# MinIO y en MariaDB.
+# Requisitos: bash, curl, y unzip o python3. No hace falta levantar el stack
+# antes: este wrapper solo baja y verifica el bundle y delega en el restore.sh
+# que viene adentro, que es el que levanta el stack por su cuenta (`docker
+# compose up -d`) y espera a que MariaDB y el esquema del backend existan antes
+# de escribir en MinIO y en MariaDB. Por eso el README lo documenta como el
+# primer comando de un clon limpio, y correrlo con el stack ya arriba tampoco
+# estorba.
 #
 # Uso:  ./scripts/restore-env.sh
 set -euo pipefail
