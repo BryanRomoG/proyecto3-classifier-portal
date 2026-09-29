@@ -1,0 +1,5 @@
+# DVC stage outputs under data/processed/ (dvc.yaml's `crop` stage): only the
+# artifacts are ignored, never dvc.lock or the stage definition itself.
+/crops
+/crops_manifest.json
+/crop_exclusions.json

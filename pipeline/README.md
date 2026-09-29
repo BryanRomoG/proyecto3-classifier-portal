@@ -1,6 +1,109 @@
 # pipeline/
 
-Python 3.12 DVC pipeline: `ingest → validate → analyze → quality_gate → split → release`. See `dvc.yaml` for the full stage graph and `docs/` (repo root) for the Data Quality baseline audits.
+Python 3.12 DVC pipeline: `ingest → validate → analyze → quality_gate → crop → split → release`, where `crop` is the T3-1.1 stage (see "COCO crops (T3-1.1)") that feeds the classifier. See `dvc.yaml` for the full stage graph and `docs/` (repo root) for the Data Quality baseline audits.
+
+## COCO crops (T3-1.1)
+
+The `crop` stage (`src/dataset_quality/crops/`) turns the valid bounding boxes of the
+frozen target classes (`m3.target_categories` in `params.yaml`: `person`, `car`) into
+classifier-ready PNG crops. It sits after `quality_gate` and, like `split`, reads the
+persisted `quality.json`: an `overall_status` of `fail` aborts the stage with exit code 1
+and writes nothing. It does not touch `data/interim/coco.json` or the inherited 70/15/15
+split outputs; the new 70/20/10 manifest is T3-1.2's.
+
+```bash
+# from pipeline/, with MariaDB + MinIO populated (see "Needs a populated backend")
+PYTHONPATH=src dvc repro crop
+
+# the stage's own command, verbatim
+PYTHONPATH=src python -m dataset_quality.crops \
+  data/interim/coco.json \
+  --quality-report data/interim/quality.json \
+  --dataset-version v1.0.0 \
+  --category person --category car \
+  --crops-root data/processed/crops \
+  --manifest-output data/processed/crops_manifest.json \
+  --exclusions-output data/processed/crop_exclusions.json
+```
+
+### What it produces
+
+| Artifact | Contents |
+|---|---|
+| `data/processed/crops/<category>/<annotation_id>.png` | one deterministic RGB PNG per valid box, named by COCO annotation id |
+| `data/processed/crops_manifest.json` | `dataset_version`, the COCO `coco_sha256`, the target classes, counts per class, and one record per crop: `annotation_id`, `source_image_id`, `source_file_name`, `category_id`/`category_name`, the COCO `bbox`, the integer limits used (`x_min`/`y_min`/`x_max`/`y_max`), `crop_width`/`crop_height`, `relative_path` (relative to `pipeline/`) and `png_sha256` |
+| `data/processed/crop_exclusions.json` | every rejected annotation: `annotation_id` when it exists, image/category, the *original* `bbox` value, and stable `reasons` |
+
+Pixel limits are `floor` for `x`/`y` and `ceil` for `x + width`/`y + height`, computed only
+after the box has been validated against the size COCO declares *and* against the size PIL
+actually decodes. Each crop record carries both pairs of dimensions
+(`source_image_width`/`height` from COCO, `observed_image_width`/`height` from PIL), so a
+source whose real size disagrees with COCO is visible instead of silently mis-cropped.
+
+Reproducibility: no timestamps, host paths or filesystem-dependent ordering are recorded,
+records are sorted by ids, and the three outputs are staged next to their final paths and
+published only after the whole run succeeded -- so a second run over the same COCO, params
+and stored objects produces byte-identical JSON and PNGs, and a failed run never leaves a
+partial `crops/` tree next to the previous release's JSON.
+`pipeline/data/processed/.gitignore` lists the three artifacts only (all DVC outputs);
+`dvc.lock` and the stage definition stay tracked.
+
+### Exclusion rules
+
+A rejected box is data, not a crash: the annotation is recorded and every other crop is
+still produced, so the run never aborts on the first bad box.
+
+| Reason | Meaning |
+|---|---|
+| `malformed_annotation` | the `annotations[]` entry is not a JSON object, or has no usable positive integer `id` |
+| `malformed_bbox` | `bbox` is missing, or is not an array of exactly four values |
+| `non_numeric_bbox` | `bbox` contains a non-numeric value (booleans included) |
+| `non_finite_bbox` | `bbox` contains `NaN` or an infinity (serialized as `null`, since JSON has no `NaN`) |
+| `nonpositive_width` / `nonpositive_height` | degenerate box: `width <= 0` or `height <= 0` |
+| `negative_origin` | `x < 0` or `y < 0` |
+| `origin_outside_image` | `x >= width` or `y >= height` of the declared image |
+| `exceeds_image_bounds` | `x + width > width` or `y + height > height` of the declared image |
+| `unknown_category` | `category_id` is not declared in `categories`, so the class cannot be resolved |
+| `unknown_image` | `image_id` is not declared in `images` |
+| `real_dimension_mismatch` | PIL's size differs from the declared size (also listed once per image in `dimension_mismatches`) |
+| `exceeds_real_image_bounds` | the box fits the declared grid but not the real pixel grid |
+
+Annotations of non-target classes are **not** errors: they are counted once in the summary's
+`ignored_non_target` and never listed as exclusions. The summary also reports
+`exclusions_by_reason`, `excluded_target_boxes` and `unresolvable_annotations`, so the
+counters can be audited against each other.
+
+Structural damage (a missing `images`/`categories`/`annotations` array, an image without a
+positive id or size, duplicate ids) and an unusable target configuration (an undeclared or
+duplicated target category, or a name that cannot be a directory) abort the stage instead:
+those are not per-box data problems.
+
+### Failure modes (fail closed)
+
+- Quality Gate `fail`: exit 1, no crops, no JSON.
+- A missing `images` row, a blank `storage_key`, an unreachable object or an undecodable
+  image raises `CropSourceUnavailableError` / `CropSourceDecodeError`: the stage fails
+  visibly instead of reporting a smaller crop set.
+- Nothing is published until the run is complete: the PNGs and both JSON artifacts are
+  built under temporary sibling paths inside `data/processed/`, and only then are the
+  three outputs replaced together (`crops/` first, the JSON last, so the manifest is
+  never newer than the tree it describes). A failed run therefore leaves the previous
+  release byte-for-byte as it was, and removes its own temporaries -- it never leaves a
+  partially regenerated `crops/` next to the previous manifest.
+- The manifest only ever records the final `data/processed/...` paths; the staging names
+  are an implementation detail of the run and never appear in an artifact.
+- The count invariants (`crops + excluded_target_boxes == target_annotations`, and the
+  total splitting into target, ignored non-target and unresolvable annotations) are
+  re-checked before anything is serialized or published.
+
+### Needs a populated backend
+
+`crop` reads real image bytes, so it needs MariaDB and MinIO/S3 populated for the release
+under test: an `images.storage_key` for every image id referenced by a target-class box, and
+the matching object in the source bucket (`object_store_bucket`, default `image-annotations`).
+COCO image ids are the backend's `images.id` -- the same relation the `analyze` stage already
+relies on. On a clean clone, populate both with `./scripts/restore-env.sh` (repo root) before
+running the stage; without that data it fails loudly rather than emitting a partial crop set.
 
 ## Dataset release & versioning (OPS-07)
 

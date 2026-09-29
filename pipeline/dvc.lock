@@ -11,18 +11,18 @@ stages:
       isexec: true
     - path: src/dataset_quality/analyzers/m3.py
       hash: md5
-      md5: 9de6ef558424c0424e5e5cc48b1a42bb
-      size: 5363
+      md5: 37ea57e403b0cabd0f1b9ff5223f1c9c
+      size: 5217
       isexec: true
     - path: src/dataset_quality/ingestion/__main__.py
       hash: md5
-      md5: b08bc8b691430f08ca57f1ab1dd2ee78
-      size: 1470
+      md5: bb8e7088a45c90cc54b8dcae6644c4bc
+      size: 1426
       isexec: true
     - path: src/dataset_quality/ingestion/models.py
       hash: md5
-      md5: 60241594e79f7d530b26a0bd02e05bda
-      size: 3513
+      md5: 2d737413b6518058b14d588f0aab934e
+      size: 3405
       isexec: true
     outs:
     - path: data/interim/coco.json
@@ -40,13 +40,13 @@ stages:
       size: 345922
     - path: src/dataset_quality/analyzers/m3.py
       hash: md5
-      md5: 9de6ef558424c0424e5e5cc48b1a42bb
-      size: 5363
+      md5: 37ea57e403b0cabd0f1b9ff5223f1c9c
+      size: 5217
       isexec: true
     - path: src/dataset_quality/ingestion/models.py
       hash: md5
-      md5: 60241594e79f7d530b26a0bd02e05bda
-      size: 3513
+      md5: 2d737413b6518058b14d588f0aab934e
+      size: 3405
       isexec: true
     params:
       params.yaml:
@@ -76,33 +76,33 @@ stages:
       size: 513
     - path: src/dataset_quality/analyzers/__main__.py
       hash: md5
-      md5: 7aeb3affc08ea79b5e5713ef1a614b1c
-      size: 6870
+      md5: eff6e0fc96bb06714888e19a40d7c227
+      size: 6712
       isexec: true
     - path: src/dataset_quality/analyzers/dq04.py
       hash: md5
-      md5: b914a6ba2dd57fbe98c14ee840201c1a
-      size: 7242
+      md5: 1fcb1c64bfa3cd5225a3c4fb95cd0e63
+      size: 7054
       isexec: true
     - path: src/dataset_quality/analyzers/dq05.py
       hash: md5
-      md5: 176b16eaf084efa717d151667483d8e5
-      size: 6508
+      md5: 845cee369e367f37d2dffdd6a5f62abf
+      size: 6318
       isexec: true
     - path: src/dataset_quality/analyzers/dq06.py
       hash: md5
-      md5: 8f4c5a30d2a1010f3ba34dbd4f6c545a
-      size: 3951
+      md5: c42874856e43d7142d599cebcb659cc4
+      size: 3836
       isexec: true
     - path: src/dataset_quality/analyzers/m3.py
       hash: md5
-      md5: 9de6ef558424c0424e5e5cc48b1a42bb
-      size: 5363
+      md5: 37ea57e403b0cabd0f1b9ff5223f1c9c
+      size: 5217
       isexec: true
     - path: src/dataset_quality/config/clients.py
       hash: md5
-      md5: 8b6b148e29ee4485509f236d2933b16a
-      size: 888
+      md5: 84564ffd1d477350ede259f9a6ae3d0a
+      size: 863
       isexec: true
     - path: src/dataset_quality/config/settings.py
       hash: md5
@@ -111,13 +111,13 @@ stages:
       isexec: true
     - path: src/dataset_quality/ingestion/models.py
       hash: md5
-      md5: 60241594e79f7d530b26a0bd02e05bda
-      size: 3513
+      md5: 2d737413b6518058b14d588f0aab934e
+      size: 3405
       isexec: true
     - path: src/dataset_quality/storage/object_store.py
       hash: md5
-      md5: 45a27430d6a76b6482fce57456f20579
-      size: 1054
+      md5: 50865de76133df3f4074b7dfb0d01d52
+      size: 1026
       isexec: true
     params:
       params.yaml:
@@ -145,28 +145,28 @@ stages:
       size: 190
     - path: quality.yaml
       hash: md5
-      md5: c8a0f164c8221d31e555e83c73ccecd2
-      size: 771
+      md5: c28719ab9cb919c1995485f657e7645c
+      size: 735
       isexec: true
     - path: src/dataset_quality/ingestion/models.py
       hash: md5
-      md5: 60241594e79f7d530b26a0bd02e05bda
-      size: 3513
+      md5: 2d737413b6518058b14d588f0aab934e
+      size: 3405
       isexec: true
     - path: src/dataset_quality/quality_gate/models.py
       hash: md5
-      md5: afc8dccd0f32b11007447da44323a37e
-      size: 3401
+      md5: e5ae22c59df639f5b0c8d0b5a6dc6178
+      size: 3304
       isexec: true
     - path: src/dataset_quality/quality_gate/policy.py
       hash: md5
-      md5: 1094c3c1966176f133fa42c3be532e76
-      size: 3064
+      md5: 7b30c8196fff64500f9a241f41823099
+      size: 2974
       isexec: true
     - path: src/dataset_quality/quality_gate/runner.py
       hash: md5
-      md5: 664b900a54326423af7c978db0286fa3
-      size: 3706
+      md5: 4c421a32c39e16c925f3505a2cd38871
+      size: 3610
       isexec: true
     params:
       params.yaml:
@@ -174,7 +174,7 @@ stages:
     outs:
     - path: data/interim/quality.json
       hash: md5
-      md5: c0fa142c8c7f3e12f96ae9ee6c8aa2a8
+      md5: e93439b0b864115d9343f33ab9dcadf3
       size: 1787
   split:
     cmd: PYTHONPATH=src python -m dataset_quality.splits data/interim/coco.json 
@@ -322,3 +322,93 @@ stages:
       hash: md5
       md5: 6489a0f0628f5acfcc9a6f5a135b13ea
       size: 593
+  crop:
+    cmd: PYTHONPATH=src python -m dataset_quality.crops data/interim/coco.json
+      --quality-report data/interim/quality.json --dataset-version v1.0.0
+      --category person --category car --crops-root data/processed/crops
+      --manifest-output data/processed/crops_manifest.json --exclusions-output
+      data/processed/crop_exclusions.json
+    deps:
+    - path: data/interim/coco.json
+      hash: md5
+      md5: 9f9372956e21b889f5af1a8a3bf81c54
+      size: 345922
+    - path: data/interim/quality.json
+      hash: md5
+      md5: e93439b0b864115d9343f33ab9dcadf3
+      size: 1787
+    - path: src/dataset_quality/config/clients.py
+      hash: md5
+      md5: 84564ffd1d477350ede259f9a6ae3d0a
+      size: 863
+      isexec: true
+    - path: src/dataset_quality/config/settings.py
+      hash: md5
+      md5: f2cf53c1ba747119441327da7e6e738d
+      size: 2510
+      isexec: true
+    - path: src/dataset_quality/crops/__init__.py
+      hash: md5
+      md5: 7b4a78901a36cab76eec4c9b65426499
+      size: 1653
+      isexec: true
+    - path: src/dataset_quality/crops/__main__.py
+      hash: md5
+      md5: d0a044ec1c7530a543364774a75484eb
+      size: 2855
+      isexec: true
+    - path: src/dataset_quality/crops/errors.py
+      hash: md5
+      md5: 45a98402cbd6f184477baf52c094158b
+      size: 1305
+      isexec: true
+    - path: src/dataset_quality/crops/generator.py
+      hash: md5
+      md5: a5a2edc525019a195903825231e121bd
+      size: 16271
+      isexec: true
+    - path: src/dataset_quality/crops/geometry.py
+      hash: md5
+      md5: 054fa92ce55838da0299933602f43f98
+      size: 3939
+      isexec: true
+    - path: src/dataset_quality/crops/models.py
+      hash: md5
+      md5: 202dbffd7cc41c25fd2186f5b90930bd
+      size: 4961
+      isexec: true
+    - path: src/dataset_quality/crops/planning.py
+      hash: md5
+      md5: 079a52b371091c01aaf6fa05f9193e93
+      size: 12729
+      isexec: true
+    - path: src/dataset_quality/crops/sources.py
+      hash: md5
+      md5: 35a386847151088295f52e6bf8adc040
+      size: 3548
+      isexec: true
+    - path: src/dataset_quality/storage/object_store.py
+      hash: md5
+      md5: 50865de76133df3f4074b7dfb0d01d52
+      size: 1026
+      isexec: true
+    params:
+      params.yaml:
+        dataset_version: v1.0.0
+        m3.target_categories:
+        - person
+        - car
+    outs:
+    - path: data/processed/crop_exclusions.json
+      hash: md5
+      md5: 0193de21cb7f0d5f6799a21410a950f2
+      size: 616
+    - path: data/processed/crops
+      hash: md5
+      md5: 72901e845a19482b868bf030dcf2c53b.dir
+      size: 233970861
+      nfiles: 1038
+    - path: data/processed/crops_manifest.json
+      hash: md5
+      md5: bba57fce80109aca3cf43f63961c4ea5
+      size: 794015
