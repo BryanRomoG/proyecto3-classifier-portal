@@ -182,7 +182,10 @@ def evaluate_test(
 
     if audit:
         stored = json.loads(report_path.read_text(encoding="utf-8"))
-        from_csv = metrics_from_predictions_csv(report_dir / PREDICTIONS_CSV)
+        try:
+            from_csv = metrics_from_predictions_csv(report_dir / PREDICTIONS_CSV)
+        except ValueError as error:
+            return {"audit": True, "matches": False, "differences": {"predictions_csv": str(error)}}
         differences = {
             key: {"stored": stored.get(key), "recomputed": result[key], "from_csv": from_csv[key]}
             for key in ("total", "correct", "accuracy", "macro_f1", "confusion_matrix")

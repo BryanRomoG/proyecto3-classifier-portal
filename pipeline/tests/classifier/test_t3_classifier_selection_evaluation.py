@@ -180,3 +180,24 @@ def test_cli_refuses_to_open_the_test_without_explicit_confirmation(
     assert (
         json.loads((selected["report_dir"] / "selection.json").read_text())["test_opened"] is False
     )
+
+
+def test_audit_flags_a_consistently_tampered_prediction(synthetic, selected) -> None:
+    # Flipping the prediction *and* its `correct` flag keeps the CSV self-consistent; the
+    # audit must still catch it by comparing with the stored result and a fresh inference.
+    _evaluate(synthetic, selected)
+    path = selected["report_dir"] / "test_predictions.csv"
+    with path.open(encoding="utf-8") as handle:
+        rows = list(csv.DictReader(handle))
+    row = rows[0]
+    row["predicted_label"] = "person" if row["predicted_label"] == "car" else "car"
+    row["correct"] = str(row["predicted_label"] == row["true_label"])
+    with path.open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.DictWriter(handle, fieldnames=list(rows[0]))
+        writer.writeheader()
+        writer.writerows(rows)
+
+    audit = _evaluate(synthetic, selected, audit=True)
+
+    assert audit["matches"] is False
+    assert "confusion_matrix" in audit["differences"]

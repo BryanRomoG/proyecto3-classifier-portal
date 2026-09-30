@@ -1,0 +1,451 @@
+{
+  "checks": {
+    "at_least_10_valid_runs": true,
+    "each_hyperparameter_two_values": true,
+    "valid_runs_at_least_2_epochs": true,
+    "valid_runs_config_valid": true,
+    "valid_runs_finished": true,
+    "valid_runs_logging_complete": true,
+    "valid_runs_no_exact_duplicates": true,
+    "valid_runs_same_classes": true,
+    "valid_runs_same_manifest": true,
+    "valid_runs_weights_changed": true
+  },
+  "classes": [
+    "car",
+    "person"
+  ],
+  "coverage_among_valid_runs": {
+    "batch_size": [
+      "16",
+      "32",
+      "64"
+    ],
+    "dropout": [
+      "0.0",
+      "0.3",
+      "0.5"
+    ],
+    "hidden_layers": [
+      "[256]",
+      "[512, 128]",
+      "[]"
+    ],
+    "image_size": [
+      "128",
+      "160",
+      "96"
+    ],
+    "learning_rate": [
+      "0.0001",
+      "0.0003",
+      "0.01"
+    ],
+    "max_epochs": [
+      "15",
+      "4"
+    ],
+    "optimizer": [
+      "adam",
+      "adamw",
+      "sgd"
+    ]
+  },
+  "experiment": "t3-classifier",
+  "manifest_sha256": "394743403f8a263b462687b733272e9993d7dddaea6a1229f8ee2896b82f3f7d",
+  "meets_rubric": true,
+  "runs": [
+    {
+      "best_epoch": null,
+      "best_val_accuracy": null,
+      "best_val_loss": null,
+      "classes": [
+        "car",
+        "person"
+      ],
+      "config_issues": [],
+      "config_valid": true,
+      "end_time": 1790778323186,
+      "grid_run": "r01-base",
+      "invalid_reasons": [
+        "status KILLED",
+        "weights did not change",
+        "fewer than 2 epochs"
+      ],
+      "logging_gaps": null,
+      "manifest_sha256": "394743403f8a263b462687b733272e9993d7dddaea6a1229f8ee2896b82f3f7d",
+      "params": {
+        "batch_size": "32",
+        "dropout": "0.3",
+        "hidden_layers": "[256]",
+        "image_size": "128",
+        "learning_rate": "0.0003",
+        "max_epochs": "15",
+        "optimizer": "adam"
+      },
+      "run_id": "2aab521643c04e429f60ca298410aa2c",
+      "run_name": "r01-base",
+      "start_time": 1790777799685,
+      "status": "KILLED",
+      "stopped_epoch": null,
+      "valid": false,
+      "weights_changed": false
+    },
+    {
+      "best_epoch": 5.0,
+      "best_val_accuracy": 0.9802955665024631,
+      "best_val_loss": 0.043282577872340536,
+      "classes": [
+        "car",
+        "person"
+      ],
+      "config_issues": [],
+      "config_valid": true,
+      "end_time": 1790778745391,
+      "grid_run": "r01-base",
+      "invalid_reasons": [],
+      "logging_gaps": [],
+      "manifest_sha256": "394743403f8a263b462687b733272e9993d7dddaea6a1229f8ee2896b82f3f7d",
+      "params": {
+        "batch_size": "32",
+        "dropout": "0.3",
+        "hidden_layers": "[256]",
+        "image_size": "128",
+        "learning_rate": "0.0003",
+        "max_epochs": "15",
+        "optimizer": "adam"
+      },
+      "run_id": "725b5579a49a424f9bf0f9750b931229",
+      "run_name": "r01-base",
+      "start_time": 1790778655327,
+      "status": "FINISHED",
+      "stopped_epoch": 9.0,
+      "valid": true,
+      "weights_changed": true
+    },
+    {
+      "best_epoch": 5.0,
+      "best_val_accuracy": 0.9359605911330049,
+      "best_val_loss": 0.17666033802214515,
+      "classes": [
+        "car",
+        "person"
+      ],
+      "config_issues": [],
+      "config_valid": true,
+      "end_time": 1790778832181,
+      "grid_run": "r02-sgd",
+      "invalid_reasons": [],
+      "logging_gaps": [],
+      "manifest_sha256": "394743403f8a263b462687b733272e9993d7dddaea6a1229f8ee2896b82f3f7d",
+      "params": {
+        "batch_size": "32",
+        "dropout": "0.3",
+        "hidden_layers": "[256]",
+        "image_size": "128",
+        "learning_rate": "0.01",
+        "max_epochs": "15",
+        "optimizer": "sgd"
+      },
+      "run_id": "b401a753f21c43df97e436f10994b131",
+      "run_name": "r02-sgd",
+      "start_time": 1790778746348,
+      "status": "FINISHED",
+      "stopped_epoch": 9.0,
+      "valid": true,
+      "weights_changed": true
+    },
+    {
+      "best_epoch": 7.0,
+      "best_val_accuracy": 0.9802955665024631,
+      "best_val_loss": 0.04088015754344722,
+      "classes": [
+        "car",
+        "person"
+      ],
+      "config_issues": [],
+      "config_valid": true,
+      "end_time": 1790779765238,
+      "grid_run": "r03-adamw-lr1e-4",
+      "invalid_reasons": [],
+      "logging_gaps": [],
+      "manifest_sha256": "394743403f8a263b462687b733272e9993d7dddaea6a1229f8ee2896b82f3f7d",
+      "params": {
+        "batch_size": "32",
+        "dropout": "0.3",
+        "hidden_layers": "[256]",
+        "image_size": "128",
+        "learning_rate": "0.0001",
+        "max_epochs": "15",
+        "optimizer": "adamw"
+      },
+      "run_id": "44725ac6b1704fed8b06bc4f846651d8",
+      "run_name": "r03-adamw-lr1e-4",
+      "start_time": 1790778833047,
+      "status": "FINISHED",
+      "stopped_epoch": 11.0,
+      "valid": true,
+      "weights_changed": true
+    },
+    {
+      "best_epoch": 5.0,
+      "best_val_accuracy": 0.9556650246305419,
+      "best_val_loss": 0.10368337384981374,
+      "classes": [
+        "car",
+        "person"
+      ],
+      "config_issues": [],
+      "config_valid": true,
+      "end_time": 1790779012447,
+      "grid_run": "r04-batch64",
+      "invalid_reasons": [],
+      "logging_gaps": [],
+      "manifest_sha256": "394743403f8a263b462687b733272e9993d7dddaea6a1229f8ee2896b82f3f7d",
+      "params": {
+        "batch_size": "64",
+        "dropout": "0.3",
+        "hidden_layers": "[256]",
+        "image_size": "128",
+        "learning_rate": "0.0003",
+        "max_epochs": "15",
+        "optimizer": "adam"
+      },
+      "run_id": "f7ca8284602449349afacd984c3c379e",
+      "run_name": "r04-batch64",
+      "start_time": 1790778938614,
+      "status": "FINISHED",
+      "stopped_epoch": 9.0,
+      "valid": true,
+      "weights_changed": true
+    },
+    {
+      "best_epoch": 3.0,
+      "best_val_accuracy": 0.9704433497536946,
+      "best_val_loss": 0.06361964722095158,
+      "classes": [
+        "car",
+        "person"
+      ],
+      "config_issues": [],
+      "config_valid": true,
+      "end_time": 1790779086935,
+      "grid_run": "r05-batch16",
+      "invalid_reasons": [],
+      "logging_gaps": [],
+      "manifest_sha256": "394743403f8a263b462687b733272e9993d7dddaea6a1229f8ee2896b82f3f7d",
+      "params": {
+        "batch_size": "16",
+        "dropout": "0.3",
+        "hidden_layers": "[256]",
+        "image_size": "128",
+        "learning_rate": "0.0003",
+        "max_epochs": "15",
+        "optimizer": "adam"
+      },
+      "run_id": "5fa5ab7e2f5241caa0001408974030d4",
+      "run_name": "r05-batch16",
+      "start_time": 1790779013109,
+      "status": "FINISHED",
+      "stopped_epoch": 7.0,
+      "valid": true,
+      "weights_changed": true
+    },
+    {
+      "best_epoch": 5.0,
+      "best_val_accuracy": 0.9802955665024631,
+      "best_val_loss": 0.043282577872340536,
+      "classes": [
+        "car",
+        "person"
+      ],
+      "config_issues": [],
+      "config_valid": true,
+      "end_time": 1790779176128,
+      "grid_run": "r06-epochs25",
+      "invalid_reasons": [
+        "identical final weights to run r01-base"
+      ],
+      "logging_gaps": null,
+      "manifest_sha256": "394743403f8a263b462687b733272e9993d7dddaea6a1229f8ee2896b82f3f7d",
+      "params": {
+        "batch_size": "32",
+        "dropout": "0.3",
+        "hidden_layers": "[256]",
+        "image_size": "128",
+        "learning_rate": "0.0003",
+        "max_epochs": "25",
+        "optimizer": "adam"
+      },
+      "run_id": "2a2d4f555ef846b6ad594dd51874a98a",
+      "run_name": "r06-epochs25",
+      "start_time": 1790779089452,
+      "status": "FINISHED",
+      "stopped_epoch": 9.0,
+      "valid": false,
+      "weights_changed": true
+    },
+    {
+      "best_epoch": 3.0,
+      "best_val_accuracy": 0.9310344827586207,
+      "best_val_loss": 0.13797453878988775,
+      "classes": [
+        "car",
+        "person"
+      ],
+      "config_issues": [],
+      "config_valid": true,
+      "end_time": 1790779251725,
+      "grid_run": "r07-img96",
+      "invalid_reasons": [],
+      "logging_gaps": [],
+      "manifest_sha256": "394743403f8a263b462687b733272e9993d7dddaea6a1229f8ee2896b82f3f7d",
+      "params": {
+        "batch_size": "32",
+        "dropout": "0.3",
+        "hidden_layers": "[256]",
+        "image_size": "96",
+        "learning_rate": "0.0003",
+        "max_epochs": "15",
+        "optimizer": "adam"
+      },
+      "run_id": "06f137544d8f4f7e8e6c258f01b7790c",
+      "run_name": "r07-img96",
+      "start_time": 1790779181337,
+      "status": "FINISHED",
+      "stopped_epoch": 7.0,
+      "valid": true,
+      "weights_changed": true
+    },
+    {
+      "best_epoch": 3.0,
+      "best_val_accuracy": 0.9605911330049262,
+      "best_val_loss": 0.10077117493357785,
+      "classes": [
+        "car",
+        "person"
+      ],
+      "config_issues": [],
+      "config_valid": true,
+      "end_time": 1790779325918,
+      "grid_run": "r08-img160-dropout0",
+      "invalid_reasons": [],
+      "logging_gaps": [],
+      "manifest_sha256": "394743403f8a263b462687b733272e9993d7dddaea6a1229f8ee2896b82f3f7d",
+      "params": {
+        "batch_size": "32",
+        "dropout": "0.0",
+        "hidden_layers": "[256]",
+        "image_size": "160",
+        "learning_rate": "0.0003",
+        "max_epochs": "15",
+        "optimizer": "adam"
+      },
+      "run_id": "a5055be4188f40be924957dbbc5cba45",
+      "run_name": "r08-img160-dropout0",
+      "start_time": 1790779252623,
+      "status": "FINISHED",
+      "stopped_epoch": 7.0,
+      "valid": true,
+      "weights_changed": true
+    },
+    {
+      "best_epoch": 5.0,
+      "best_val_accuracy": 0.9704433497536946,
+      "best_val_loss": 0.08125561849200373,
+      "classes": [
+        "car",
+        "person"
+      ],
+      "config_issues": [],
+      "config_valid": true,
+      "end_time": 1790779420444,
+      "grid_run": "r09-linear-head",
+      "invalid_reasons": [],
+      "logging_gaps": [],
+      "manifest_sha256": "394743403f8a263b462687b733272e9993d7dddaea6a1229f8ee2896b82f3f7d",
+      "params": {
+        "batch_size": "32",
+        "dropout": "0.3",
+        "hidden_layers": "[]",
+        "image_size": "128",
+        "learning_rate": "0.0003",
+        "max_epochs": "15",
+        "optimizer": "adam"
+      },
+      "run_id": "67dd830fe2ed46ae9268cc4ac6a149ce",
+      "run_name": "r09-linear-head",
+      "start_time": 1790779326620,
+      "status": "FINISHED",
+      "stopped_epoch": 9.0,
+      "valid": true,
+      "weights_changed": true
+    },
+    {
+      "best_epoch": 7.0,
+      "best_val_accuracy": 0.9655172413793104,
+      "best_val_loss": 0.0828071090804523,
+      "classes": [
+        "car",
+        "person"
+      ],
+      "config_issues": [],
+      "config_valid": true,
+      "end_time": 1790779521739,
+      "grid_run": "r10-deep-head-dropout05",
+      "invalid_reasons": [],
+      "logging_gaps": [],
+      "manifest_sha256": "394743403f8a263b462687b733272e9993d7dddaea6a1229f8ee2896b82f3f7d",
+      "params": {
+        "batch_size": "32",
+        "dropout": "0.5",
+        "hidden_layers": "[512, 128]",
+        "image_size": "128",
+        "learning_rate": "0.0003",
+        "max_epochs": "15",
+        "optimizer": "adam"
+      },
+      "run_id": "6876b9821812446cb91e8e4b2d2f7559",
+      "run_name": "r10-deep-head-dropout05",
+      "start_time": 1790779421413,
+      "status": "FINISHED",
+      "stopped_epoch": 11.0,
+      "valid": true,
+      "weights_changed": true
+    },
+    {
+      "best_epoch": 4.0,
+      "best_val_accuracy": 0.9802955665024631,
+      "best_val_loss": 0.05123601725274523,
+      "classes": [
+        "car",
+        "person"
+      ],
+      "config_issues": [],
+      "config_valid": true,
+      "end_time": 1790779689556,
+      "grid_run": "r11-epochs4",
+      "invalid_reasons": [],
+      "logging_gaps": [],
+      "manifest_sha256": "394743403f8a263b462687b733272e9993d7dddaea6a1229f8ee2896b82f3f7d",
+      "params": {
+        "batch_size": "32",
+        "dropout": "0.3",
+        "hidden_layers": "[256]",
+        "image_size": "128",
+        "learning_rate": "0.0003",
+        "max_epochs": "4",
+        "optimizer": "adam"
+      },
+      "run_id": "93f08311003645cf8716870ff5b49426",
+      "run_name": "r11-epochs4",
+      "start_time": 1790779633811,
+      "status": "FINISHED",
+      "stopped_epoch": 4.0,
+      "valid": true,
+      "weights_changed": true
+    }
+  ],
+  "runs_total": 12,
+  "valid_runs": 10
+}

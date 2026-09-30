@@ -157,7 +157,8 @@ validation.
 
 | Piece | File | What it guarantees |
 |---|---|---|
-| Config (7 searched hyperparameters + fixed ones) | `config.py` | strict pydantic model; invalid values rejected before a job exists (`validate-config`, `schema`) |
+| Config (7 searched hyperparameters + fixed ones) | `config.py` | strict pydantic model; invalid values rejected before a job exists (`validate-config`, `schema`, and the HTTP API below) |
+| Config API | `http_app.py` | `GET /training/schema`, `POST /training/validate` over the same `TrainingConfig`; no torch/MLflow imports |
 | CNN | `model.py` | ResNet-18 (`ResNet18_Weights.IMAGENET1K_V1` backbone, head from scratch) or a from-scratch LeNet-style CNN; head = `hidden_layers` + `dropout`; weight origin and trainable layers declared |
 | Data | `data.py` | manifest re-checked for leakage (crops, images, duplicate groups); random augmentation only on train; val/test/inference share one deterministic preprocessing |
 | Seeds | `reproducibility.py`, `data.SeededEpochSampler` | separate `init` / `augmentation` / `shuffle` seeds + the manifest's partition seed; library versions and git commit recorded |
@@ -183,6 +184,26 @@ is versioned with DVC as one output (`mlflow-data.dvc`); a clean clone restores 
 `dvc pull -r prod mlflow-data.dvc` and checks it with `scripts/verify_mlflow_restore.py`
 (see `docs/t3-mlflow-dvc-handoff.md`, including the pending push to the `prod` remote).
 
+### Training-config API (T3-1.4, rubric 2.2)
+
+The `classifier-api` Compose service (`python -m dataset_quality.classifier serve`, port
+8200; the Web App reaches it as `/classifier-api/`) validates a training config with the
+same `TrainingConfig` the trainer reads, so the API cannot accept a value the trainer would
+refuse, and the Training form can build its fields and limits from `/training/schema`
+instead of copying them. Job creation must call `/training/validate` first; nothing is
+created on a 422.
+
+```bash
+curl -s -X POST localhost:8200/training/validate -H 'content-type: application/json' \
+  -d '{"batch_size": 0, "optimizer": "rmsprop"}'
+# HTTP 422 {"valid": false, "errors": [
+#   {"field": "optimizer",  "message": "Input should be 'sgd', 'adam' or 'adamw'"},
+#   {"field": "batch_size", "message": "Input should be greater than or equal to 1"}]}
+curl -s -X POST localhost:8200/training/validate -H 'content-type: application/json' \
+  -d '{"batch_size": 64}'
+# HTTP 200 {"valid": true, "config": {...every effective value, defaults included...}}
+```
+
 Runbook, from `pipeline/` with `PYTHONPATH=src`, **in this order** (the order is the
 protocol: selection is written before the test is ever read):
 
@@ -195,12 +216,16 @@ python -m dataset_quality.classifier grid-check
 python -m dataset_quality.classifier train --json '{"max_epochs": 2}' --run-name smoke
 
 # 2. T3-2.5 reproducibility: same config twice -> same epoch1_order_sha256 / final_state_sha256
+#    (result, per device: reports/classifier/reproducibility.md)
 python -m dataset_quality.classifier train --json '{"max_epochs": 2}' --run-name repro-a
 python -m dataset_quality.classifier train --json '{"max_epochs": 2}' --run-name repro-b
 
 # 3. T3-3.1 the 10 official runs (resumable: runs that already have a valid run are skipped)
 python -m dataset_quality.classifier run-grid
 python -m dataset_quality.classifier list-runs          # valid run IDs, params, val metrics
+python -m dataset_quality.classifier export-runs --experiments t3-classifier t3-smoke-repro
+#   -> reports/classifier/mlflow_runs.json + curves/ (commit them: mlflow-data/ is git-ignored,
+#      so this snapshot is what a clean clone can audit; every run_id points back to MLflow)
 
 # 4. T3-3.2 select by validation -> reports/classifier/selection.json (commit it!)
 python -m dataset_quality.classifier select
@@ -211,7 +236,32 @@ python -m dataset_quality.classifier evaluate --confirm-final-test
 # audit at any time (never overwrites): recompute from checkpoint and from the CSV alone
 python -m dataset_quality.classifier evaluate --audit
 python -m dataset_quality.classifier recompute
+
+# T3-4.2 mutation check: break each critical rule in an isolated temp copy, the suite must fail
+python scripts/classifier_mutation_check.py --report reports/classifier/mutation_check.json
 ```
+
+### Verifying the evidence (evaluator runbook)
+
+From `pipeline/` with `PYTHONPATH=src` and `MLFLOW_TRACKING_URI=http://localhost:5000`
+(`docker compose up -d mlflow` from the repo root). Every command is read-only except where
+noted, exits non-zero when its check fails, and was run against the real store; its output
+is committed next to it in `reports/classifier/`.
+
+| # | What | Command | Committed output |
+|---|---|---|---|
+| 1 | Classifier tests | `python -m pytest tests/classifier -q` | — |
+| 2 | Invalid config rejected (exit 2) | `python -m dataset_quality.classifier validate-config --json '{"batch_size": 0}'` | — |
+| 3 | Two repeat runs are reproducible | `python -m dataset_quality.classifier repro-check <RUN_A> <RUN_B>`; or `repro-check --train --json '{"max_epochs": 2}' --device cuda` (trains two short runs on train/val, logs them to `t3-smoke-repro`, never to the official experiment) | `reproducibility_check.json` |
+| 4 | The 10 valid MLflow runs, 7 hyperparameters × ≥ 2 values, logging complete | `python -m dataset_quality.classifier list-runs` | `audit_runs.json` |
+| 5 | Candidate chosen by validation, before the test, re-selection refused | `python -m dataset_quality.classifier audit-selection` | `audit_selection.json` |
+| 6 | Final evaluation re-run with the selected checkpoint, nothing overwritten | `python -m dataset_quality.classifier evaluate --audit` | — |
+| 7 | Metrics from `test_predictions.csv` alone, vs `test_evaluation.json` and MLflow | `python -m dataset_quality.classifier recompute`; `python -m dataset_quality.classifier audit-test` | `audit_test.json` |
+| 8 | Mutation check (isolated temp copy) | `python scripts/classifier_mutation_check.py --report reports/classifier/mutation_check.json` | `mutation_check.json` |
+
+Step 6 needs the selected checkpoint (`artifacts/classifier/selected/<run_id>/model.pt`, as
+written by `select`) and the crops. Steps 3 (`--train`) and 8 train or run the suite and take
+minutes; the others take seconds.
 
 Checkpoints, per-run artifacts and the local MLflow store are git-ignored
 (`artifacts/`, `mlflow.db`, `mlruns/`, `*.pt`); the evidence that must be versioned —
