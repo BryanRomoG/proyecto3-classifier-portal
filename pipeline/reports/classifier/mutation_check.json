@@ -1,8 +1,8 @@
 {
   "baseline": {
     "passed": true,
-    "summary": "67 passed in 93.50s (0:01:33)",
-    "seconds": 105.8
+    "summary": "67 passed in 94.14s (0:01:34)",
+    "seconds": 110.1
   },
   "mutants": [
     {
@@ -12,8 +12,11 @@
       "original": "model.load_state_dict(best_state)",
       "mutated": "pass  # mutant: keep the last epoch's weights",
       "killed": true,
-      "pytest_summary": "1 failed in 0.47s",
-      "seconds": 9.3
+      "detected_by": [
+        "tests/classifier/test_t3_classifier_early_stopping.py::test_stops_after_patience_and_restores_best_not_last"
+      ],
+      "pytest_summary": "1 failed in 0.78s",
+      "seconds": 10.1
     },
     {
       "name": "ignore-min-delta",
@@ -22,8 +25,11 @@
       "original": "return value < self.best_value - self.min_delta",
       "mutated": "return value < self.best_value",
       "killed": true,
-      "pytest_summary": "1 failed, 1 passed in 0.49s",
-      "seconds": 8.8
+      "detected_by": [
+        "tests/classifier/test_t3_classifier_early_stopping.py::test_improvements_smaller_than_min_delta_do_not_count"
+      ],
+      "pytest_summary": "1 failed, 1 passed in 0.62s",
+      "seconds": 10.2
     },
     {
       "name": "transposed-matrix",
@@ -32,8 +38,11 @@
       "original": "matrix[truth][predicted] += 1",
       "mutated": "matrix[predicted][truth] += 1",
       "killed": true,
-      "pytest_summary": "1 failed in 0.44s",
-      "seconds": 8.5
+      "detected_by": [
+        "tests/classifier/test_t3_classifier_metrics.py::test_matrix_rows_are_true_columns_are_predicted"
+      ],
+      "pytest_summary": "1 failed in 0.53s",
+      "seconds": 10.0
     },
     {
       "name": "rounded-threshold",
@@ -42,8 +51,11 @@
       "original": "return total > 0 and correct / total >= threshold",
       "mutated": "return total > 0 and round(correct / total, 2) >= threshold",
       "killed": true,
-      "pytest_summary": "1 failed, 3 passed in 0.48s",
-      "seconds": 8.8
+      "detected_by": [
+        "tests/classifier/test_t3_classifier_metrics.py::test_threshold_is_compared_without_rounding"
+      ],
+      "pytest_summary": "1 failed, 3 passed in 0.64s",
+      "seconds": 10.6
     },
     {
       "name": "unsealed-test",
@@ -52,8 +64,11 @@
       "original": "if split == \"test\" and not allow_test:",
       "mutated": "if False:  # mutant: test split readable by anyone",
       "killed": true,
-      "pytest_summary": "1 failed in 0.71s",
-      "seconds": 10.2
+      "detected_by": [
+        "tests/classifier/test_t3_classifier_data.py::test_test_split_is_sealed_unless_explicitly_opened"
+      ],
+      "pytest_summary": "1 failed in 0.88s",
+      "seconds": 13.3
     },
     {
       "name": "augmented-validation",
@@ -62,8 +77,11 @@
       "original": "eval_transform(image_size),\n        split=\"val\",",
       "mutated": "train_transform(image_size, augment=augment),\n        split=\"val\",",
       "killed": true,
-      "pytest_summary": "1 failed, 5 passed in 1.58s",
-      "seconds": 10.5
+      "detected_by": [
+        "tests/classifier/test_t3_classifier_data.py::test_augmentation_only_touches_train"
+      ],
+      "pytest_summary": "1 failed, 5 passed in 1.48s",
+      "seconds": 10.3
     },
     {
       "name": "ignore-duplicate-leakage",
@@ -72,8 +90,11 @@
       "original": "if manifest.leakage_check.status != \"pass\" or manifest.leakage_check.leaked_pairs:",
       "mutated": "if False:  # mutant: accept leaked duplicate groups",
       "killed": true,
-      "pytest_summary": "1 failed, 4 passed in 1.21s",
-      "seconds": 10.4
+      "detected_by": [
+        "tests/classifier/test_t3_classifier_data.py::test_a_failed_duplicate_leakage_check_is_refused"
+      ],
+      "pytest_summary": "1 failed, 4 passed in 1.50s",
+      "seconds": 11.3
     },
     {
       "name": "shared-source-image",
@@ -82,8 +103,11 @@
       "original": "other = seen_images.setdefault(image_id, section.name)\n            if other != section.name:",
       "mutated": "other = seen_images.setdefault(image_id, section.name)\n            if False:  # mutant: same original image in two splits",
       "killed": true,
-      "pytest_summary": "1 failed, 3 passed in 1.10s",
-      "seconds": 9.7
+      "detected_by": [
+        "tests/classifier/test_t3_classifier_data.py::test_an_image_in_two_splits_is_refused"
+      ],
+      "pytest_summary": "1 failed, 3 passed in 1.24s",
+      "seconds": 12.5
     },
     {
       "name": "no-optimizer-step",
@@ -92,8 +116,11 @@
       "original": "self.optimizer.step()",
       "mutated": "pass  # mutant: no optimizer step",
       "killed": true,
-      "pytest_summary": "1 failed, 5 passed in 33.24s",
-      "seconds": 43.3
+      "detected_by": [
+        "tests/classifier/test_t3_classifier_training.py::test_checkpoint_reloads_in_a_clean_loader_and_predicts"
+      ],
+      "pytest_summary": "1 failed, 5 passed in 43.72s",
+      "seconds": 54.6
     },
     {
       "name": "reversed-class-map",
@@ -102,8 +129,11 @@
       "original": "class_names = list(checkpoint[\"class_names\"])",
       "mutated": "class_names = sorted(checkpoint[\"class_names\"], reverse=True)",
       "killed": true,
-      "pytest_summary": "1 failed, 5 passed in 31.73s",
-      "seconds": 42.2
+      "detected_by": [
+        "tests/classifier/test_t3_classifier_training.py::test_checkpoint_reloads_in_a_clean_loader_and_predicts"
+      ],
+      "pytest_summary": "1 failed, 5 passed in 34.69s",
+      "seconds": 47.2
     },
     {
       "name": "wrong-preprocessing",
@@ -112,8 +142,11 @@
       "original": "transform=eval_transform(config.image_size),",
       "mutated": "transform=eval_transform(config.image_size // 4),",
       "killed": true,
-      "pytest_summary": "1 failed, 6 passed in 37.33s",
-      "seconds": 47.3
+      "detected_by": [
+        "tests/classifier/test_t3_classifier_training.py::test_reloaded_model_preprocesses_exactly_like_validation_and_test"
+      ],
+      "pytest_summary": "1 failed, 6 passed in 41.40s",
+      "seconds": 52.5
     },
     {
       "name": "second-test-evaluation",
@@ -122,8 +155,11 @@
       "original": "if report_path.exists() and not audit:",
       "mutated": "if False:  # mutant: allow a second final evaluation",
       "killed": true,
-      "pytest_summary": "1 failed, 2 passed in 20.14s",
-      "seconds": 29.6
+      "detected_by": [
+        "tests/classifier/test_t3_classifier_selection_evaluation.py::test_the_test_is_opened_only_once_and_selection_is_then_frozen"
+      ],
+      "pytest_summary": "1 failed, 2 passed in 20.76s",
+      "seconds": 30.5
     },
     {
       "name": "swapped-checkpoint",
@@ -132,8 +168,11 @@
       "original": "if _sha256(checkpoint) != selection[\"checkpoint_sha256\"]:",
       "mutated": "if False:  # mutant: evaluate any checkpoint",
       "killed": true,
-      "pytest_summary": "1 failed, 4 passed in 32.09s",
-      "seconds": 41.9
+      "detected_by": [
+        "tests/classifier/test_t3_classifier_selection_evaluation.py::test_a_swapped_checkpoint_is_refused"
+      ],
+      "pytest_summary": "1 failed, 4 passed in 32.07s",
+      "seconds": 42.5
     },
     {
       "name": "select-after-test",
@@ -142,8 +181,11 @@
       "original": "if (report_dir / EVALUATION_REPORT).exists():",
       "mutated": "if False:  # mutant: re-select after seeing the test",
       "killed": true,
-      "pytest_summary": "1 failed, 2 passed in 21.46s",
-      "seconds": 31.0
+      "detected_by": [
+        "tests/classifier/test_t3_classifier_selection_evaluation.py::test_the_test_is_opened_only_once_and_selection_is_then_frozen"
+      ],
+      "pytest_summary": "1 failed, 2 passed in 22.23s",
+      "seconds": 32.8
     },
     {
       "name": "select-on-test-metric",
@@ -152,8 +194,11 @@
       "original": "if not metric.startswith((\"best_val_\", \"val_\")):",
       "mutated": "if False:  # mutant: any metric, test included",
       "killed": true,
-      "pytest_summary": "1 failed, 5 passed in 0.63s",
-      "seconds": 9.4
+      "detected_by": [
+        "tests/classifier/test_t3_classifier_experiments.py::test_a_policy_on_a_test_metric_is_refused"
+      ],
+      "pytest_summary": "1 failed, 5 passed in 0.58s",
+      "seconds": 9.8
     },
     {
       "name": "identical-weights-count",
@@ -162,8 +207,11 @@
       "original": "if not reasons and final_weights in seen_weights:",
       "mutated": "if False:  # mutant: identical weights count as a new run",
       "killed": true,
-      "pytest_summary": "1 failed, 10 passed in 46.62s",
-      "seconds": 56.9
+      "detected_by": [
+        "tests/classifier/test_t3_classifier_training.py::test_a_max_epochs_change_that_never_bites_is_not_a_new_valid_run"
+      ],
+      "pytest_summary": "1 failed, 10 passed in 47.30s",
+      "seconds": 58.8
     },
     {
       "name": "constant-hyperparameter",
@@ -172,8 +220,11 @@
       "original": "if len(distinct) < 2:",
       "mutated": "if False:  # mutant: constant hyperparameters allowed",
       "killed": true,
-      "pytest_summary": "1 failed, 2 passed in 0.57s",
-      "seconds": 9.3
+      "detected_by": [
+        "tests/classifier/test_t3_classifier_experiments.py::test_grid_with_a_constant_hyperparameter_is_refused"
+      ],
+      "pytest_summary": "1 failed, 2 passed in 0.60s",
+      "seconds": 10.9
     },
     {
       "name": "unknown-field-ignored",
@@ -182,13 +233,22 @@
       "original": "\"\"\"A complete, validated training job description.\"\"\"\n\n    model_config = ConfigDict(extra=\"forbid\")",
       "mutated": "\"\"\"A complete, validated training job description.\"\"\"\n\n    model_config = ConfigDict(extra=\"ignore\")",
       "killed": true,
-      "pytest_summary": "1 failed, 14 passed in 0.46s",
-      "seconds": 9.0
+      "detected_by": [
+        "tests/classifier/test_t3_classifier_config.py::test_invalid_values_are_rejected_with_a_useful_message[payload13-batch_sise]"
+      ],
+      "pytest_summary": "1 failed, 14 passed in 0.62s",
+      "seconds": 10.4
     }
   ],
+  "restored": {
+    "files_identical_to_pristine_copy": true,
+    "passed": true,
+    "summary": "67 passed in 95.87s (0:01:35)",
+    "seconds": 107.7
+  },
   "killed": 18,
   "total": 18,
   "all_killed": true,
-  "ran_at": "2026-09-30T17:07:24.523834+00:00",
+  "ran_at": "2026-09-30T17:48:18.022123+00:00",
   "python": "3.12.10"
 }
