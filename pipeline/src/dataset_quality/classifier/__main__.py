@@ -448,6 +448,12 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: list[str] | None = None) -> int:
+    # MLflow prints an emoji when a run ends. On a Windows console code page (cp1252), with
+    # output redirected (a background job, a log file), that raised UnicodeEncodeError after
+    # training and left the run RUNNING. Unencodable characters are escaped instead.
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(errors="backslashreplace")
     args = build_parser().parse_args(argv)
     if args.command not in {"schema", "validate-config", "grid-check", "recompute", "serve"}:
         import mlflow
