@@ -35,6 +35,13 @@ export default defineConfig({
         changeOrigin: true,
         rewrite: (p) => p.replace(/^\/copilot-api/, ""),
       },
+      // T3-1.4: API de configuración de entrenamiento (servicio Python aparte),
+      // `python -m dataset_quality.classifier serve` desde pipeline/ (puerto 8200).
+      "/classifier-api": {
+        target: "http://localhost:8200",
+        changeOrigin: true,
+        rewrite: (p) => p.replace(/^\/classifier-api/, ""),
+      },
     },
   },
 });

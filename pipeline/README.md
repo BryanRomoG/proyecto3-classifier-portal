@@ -157,7 +157,8 @@ validation.
 
 | Piece | File | What it guarantees |
 |---|---|---|
-| Config (7 searched hyperparameters + fixed ones) | `config.py` | strict pydantic model; invalid values rejected before a job exists (`validate-config`, `schema`) |
+| Config (7 searched hyperparameters + fixed ones) | `config.py` | strict pydantic model; invalid values rejected before a job exists (`validate-config`, `schema`, and the HTTP API below) |
+| Config API | `http_app.py` | `GET /training/schema`, `POST /training/validate` over the same `TrainingConfig`; no torch/MLflow imports |
 | CNN | `model.py` | ResNet-18 (`ResNet18_Weights.IMAGENET1K_V1` backbone, head from scratch) or a from-scratch LeNet-style CNN; head = `hidden_layers` + `dropout`; weight origin and trainable layers declared |
 | Data | `data.py` | manifest re-checked for leakage (crops, images, duplicate groups); random augmentation only on train; val/test/inference share one deterministic preprocessing |
 | Seeds | `reproducibility.py`, `data.SeededEpochSampler` | separate `init` / `augmentation` / `shuffle` seeds + the manifest's partition seed; library versions and git commit recorded |
@@ -179,6 +180,26 @@ export MLFLOW_TRACKING_URI=http://localhost:5000  # without it the CLI falls bac
 
 The `mlflow` Compose service keeps its SQLite store and the proxied artifacts in
 `pipeline/mlflow-data/` (git-ignored), so the runs survive `docker compose down`.
+
+### Training-config API (T3-1.4, rubric 2.2)
+
+The `classifier-api` Compose service (`python -m dataset_quality.classifier serve`, port
+8200; the Web App reaches it as `/classifier-api/`) validates a training config with the
+same `TrainingConfig` the trainer reads, so the API cannot accept a value the trainer would
+refuse, and the Training form can build its fields and limits from `/training/schema`
+instead of copying them. Job creation must call `/training/validate` first; nothing is
+created on a 422.
+
+```bash
+curl -s -X POST localhost:8200/training/validate -H 'content-type: application/json' \
+  -d '{"batch_size": 0, "optimizer": "rmsprop"}'
+# HTTP 422 {"valid": false, "errors": [
+#   {"field": "optimizer",  "message": "Input should be 'sgd', 'adam' or 'adamw'"},
+#   {"field": "batch_size", "message": "Input should be greater than or equal to 1"}]}
+curl -s -X POST localhost:8200/training/validate -H 'content-type: application/json' \
+  -d '{"batch_size": 64}'
+# HTTP 200 {"valid": true, "config": {...every effective value, defaults included...}}
+```
 
 Runbook, from `pipeline/` with `PYTHONPATH=src`, **in this order** (the order is the
 protocol: selection is written before the test is ever read):
