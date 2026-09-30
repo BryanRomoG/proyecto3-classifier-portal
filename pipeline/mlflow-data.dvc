@@ -1,0 +1,6 @@
+outs:
+- md5: 85f87cb65a175928215cb05c1bc736db.dir
+  size: 908751931
+  nfiles: 205
+  hash: md5
+  path: mlflow-data
