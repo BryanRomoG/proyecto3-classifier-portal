@@ -1,8 +1,8 @@
 {
   "baseline": {
     "passed": true,
-    "summary": "67 passed in 94.14s (0:01:34)",
-    "seconds": 110.1
+    "summary": "81 passed in 148.86s (0:02:28)",
+    "seconds": 166.4
   },
   "mutants": [
     {
@@ -15,8 +15,8 @@
       "detected_by": [
         "tests/classifier/test_t3_classifier_early_stopping.py::test_stops_after_patience_and_restores_best_not_last"
       ],
-      "pytest_summary": "1 failed in 0.78s",
-      "seconds": 10.1
+      "pytest_summary": "1 failed in 0.56s",
+      "seconds": 11.2
     },
     {
       "name": "ignore-min-delta",
@@ -28,8 +28,8 @@
       "detected_by": [
         "tests/classifier/test_t3_classifier_early_stopping.py::test_improvements_smaller_than_min_delta_do_not_count"
       ],
-      "pytest_summary": "1 failed, 1 passed in 0.62s",
-      "seconds": 10.2
+      "pytest_summary": "1 failed, 1 passed in 0.51s",
+      "seconds": 9.5
     },
     {
       "name": "transposed-matrix",
@@ -42,7 +42,7 @@
         "tests/classifier/test_t3_classifier_metrics.py::test_matrix_rows_are_true_columns_are_predicted"
       ],
       "pytest_summary": "1 failed in 0.53s",
-      "seconds": 10.0
+      "seconds": 9.5
     },
     {
       "name": "rounded-threshold",
@@ -54,8 +54,8 @@
       "detected_by": [
         "tests/classifier/test_t3_classifier_metrics.py::test_threshold_is_compared_without_rounding"
       ],
-      "pytest_summary": "1 failed, 3 passed in 0.64s",
-      "seconds": 10.6
+      "pytest_summary": "1 failed, 3 passed in 0.51s",
+      "seconds": 9.1
     },
     {
       "name": "unsealed-test",
@@ -67,8 +67,8 @@
       "detected_by": [
         "tests/classifier/test_t3_classifier_data.py::test_test_split_is_sealed_unless_explicitly_opened"
       ],
-      "pytest_summary": "1 failed in 0.88s",
-      "seconds": 13.3
+      "pytest_summary": "1 failed in 0.70s",
+      "seconds": 9.8
     },
     {
       "name": "augmented-validation",
@@ -80,8 +80,8 @@
       "detected_by": [
         "tests/classifier/test_t3_classifier_data.py::test_augmentation_only_touches_train"
       ],
-      "pytest_summary": "1 failed, 5 passed in 1.48s",
-      "seconds": 10.3
+      "pytest_summary": "1 failed, 5 passed in 1.49s",
+      "seconds": 11.7
     },
     {
       "name": "ignore-duplicate-leakage",
@@ -93,8 +93,8 @@
       "detected_by": [
         "tests/classifier/test_t3_classifier_data.py::test_a_failed_duplicate_leakage_check_is_refused"
       ],
-      "pytest_summary": "1 failed, 4 passed in 1.50s",
-      "seconds": 11.3
+      "pytest_summary": "1 failed, 4 passed in 1.36s",
+      "seconds": 11.4
     },
     {
       "name": "shared-source-image",
@@ -106,8 +106,8 @@
       "detected_by": [
         "tests/classifier/test_t3_classifier_data.py::test_an_image_in_two_splits_is_refused"
       ],
-      "pytest_summary": "1 failed, 3 passed in 1.24s",
-      "seconds": 12.5
+      "pytest_summary": "1 failed, 3 passed in 1.13s",
+      "seconds": 9.9
     },
     {
       "name": "no-optimizer-step",
@@ -119,8 +119,8 @@
       "detected_by": [
         "tests/classifier/test_t3_classifier_training.py::test_checkpoint_reloads_in_a_clean_loader_and_predicts"
       ],
-      "pytest_summary": "1 failed, 5 passed in 43.72s",
-      "seconds": 54.6
+      "pytest_summary": "1 failed, 7 passed in 45.57s",
+      "seconds": 55.7
     },
     {
       "name": "reversed-class-map",
@@ -132,8 +132,8 @@
       "detected_by": [
         "tests/classifier/test_t3_classifier_training.py::test_checkpoint_reloads_in_a_clean_loader_and_predicts"
       ],
-      "pytest_summary": "1 failed, 5 passed in 34.69s",
-      "seconds": 47.2
+      "pytest_summary": "1 failed, 7 passed in 43.49s",
+      "seconds": 53.9
     },
     {
       "name": "wrong-preprocessing",
@@ -145,8 +145,8 @@
       "detected_by": [
         "tests/classifier/test_t3_classifier_training.py::test_reloaded_model_preprocesses_exactly_like_validation_and_test"
       ],
-      "pytest_summary": "1 failed, 6 passed in 41.40s",
-      "seconds": 52.5
+      "pytest_summary": "1 failed, 8 passed in 46.90s",
+      "seconds": 57.1
     },
     {
       "name": "second-test-evaluation",
@@ -158,8 +158,8 @@
       "detected_by": [
         "tests/classifier/test_t3_classifier_selection_evaluation.py::test_the_test_is_opened_only_once_and_selection_is_then_frozen"
       ],
-      "pytest_summary": "1 failed, 2 passed in 20.76s",
-      "seconds": 30.5
+      "pytest_summary": "1 failed, 2 passed in 22.36s",
+      "seconds": 32.3
     },
     {
       "name": "swapped-checkpoint",
@@ -171,8 +171,8 @@
       "detected_by": [
         "tests/classifier/test_t3_classifier_selection_evaluation.py::test_a_swapped_checkpoint_is_refused"
       ],
-      "pytest_summary": "1 failed, 4 passed in 32.07s",
-      "seconds": 42.5
+      "pytest_summary": "1 failed, 4 passed in 32.75s",
+      "seconds": 42.6
     },
     {
       "name": "select-after-test",
@@ -184,8 +184,8 @@
       "detected_by": [
         "tests/classifier/test_t3_classifier_selection_evaluation.py::test_the_test_is_opened_only_once_and_selection_is_then_frozen"
       ],
-      "pytest_summary": "1 failed, 2 passed in 22.23s",
-      "seconds": 32.8
+      "pytest_summary": "1 failed, 2 passed in 19.86s",
+      "seconds": 30.0
     },
     {
       "name": "select-on-test-metric",
@@ -197,8 +197,8 @@
       "detected_by": [
         "tests/classifier/test_t3_classifier_experiments.py::test_a_policy_on_a_test_metric_is_refused"
       ],
-      "pytest_summary": "1 failed, 5 passed in 0.58s",
-      "seconds": 9.8
+      "pytest_summary": "1 failed, 5 passed in 0.62s",
+      "seconds": 9.3
     },
     {
       "name": "identical-weights-count",
@@ -210,8 +210,8 @@
       "detected_by": [
         "tests/classifier/test_t3_classifier_training.py::test_a_max_epochs_change_that_never_bites_is_not_a_new_valid_run"
       ],
-      "pytest_summary": "1 failed, 10 passed in 47.30s",
-      "seconds": 58.8
+      "pytest_summary": "1 failed, 12 passed in 57.15s",
+      "seconds": 67.6
     },
     {
       "name": "constant-hyperparameter",
@@ -223,8 +223,8 @@
       "detected_by": [
         "tests/classifier/test_t3_classifier_experiments.py::test_grid_with_a_constant_hyperparameter_is_refused"
       ],
-      "pytest_summary": "1 failed, 2 passed in 0.60s",
-      "seconds": 10.9
+      "pytest_summary": "1 failed, 2 passed in 0.53s",
+      "seconds": 9.6
     },
     {
       "name": "unknown-field-ignored",
@@ -236,19 +236,19 @@
       "detected_by": [
         "tests/classifier/test_t3_classifier_config.py::test_invalid_values_are_rejected_with_a_useful_message[payload13-batch_sise]"
       ],
-      "pytest_summary": "1 failed, 14 passed in 0.62s",
-      "seconds": 10.4
+      "pytest_summary": "1 failed, 14 passed in 0.59s",
+      "seconds": 9.2
     }
   ],
   "restored": {
     "files_identical_to_pristine_copy": true,
     "passed": true,
-    "summary": "67 passed in 95.87s (0:01:35)",
-    "seconds": 107.7
+    "summary": "81 passed in 140.23s (0:02:20)",
+    "seconds": 153.0
   },
   "killed": 18,
   "total": 18,
   "all_killed": true,
-  "ran_at": "2026-09-30T17:48:18.022123+00:00",
+  "ran_at": "2026-09-30T18:12:00.564351+00:00",
   "python": "3.12.10"
 }

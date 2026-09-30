@@ -95,6 +95,36 @@ def test_a_different_shuffle_seed_changes_the_order(synthetic, tmp_path, mlflow_
     )
 
 
+def test_the_init_seed_alone_decides_the_initial_weights(
+    synthetic, tmp_path, mlflow_tracking
+) -> None:
+    runs = [
+        _train(synthetic, tmp_path, max_epochs=1),
+        _train(synthetic, tmp_path, max_epochs=1, seeds={"augmentation": 7, "shuffle": 7}),
+        _train(synthetic, tmp_path, max_epochs=1, seeds={"init": 7}),
+    ]
+    initial = [MlflowClient().get_run(r.run_id).data.tags["initial_state_sha256"] for r in runs]
+
+    assert initial[0] == initial[1], "shuffle/augmentation seeds must not touch initialisation"
+    assert initial[0] != initial[2]
+
+
+def test_the_augmentation_seed_controls_the_random_train_transforms(
+    synthetic, tmp_path, mlflow_tracking
+) -> None:
+    runs = [
+        _train(synthetic, tmp_path, max_epochs=2),
+        _train(synthetic, tmp_path, max_epochs=2, seeds={"augmentation": 7}),
+    ]
+    tags = [MlflowClient().get_run(r.run_id).data.tags for r in runs]
+
+    assert tags[0]["initial_state_sha256"] == tags[1]["initial_state_sha256"]
+    assert tags[0]["epoch1_order_sha256"] == tags[1]["epoch1_order_sha256"]
+    assert tags[0]["final_state_sha256"] != tags[1]["final_state_sha256"], (
+        "same init and sample order: only the augmentation draws differ"
+    )
+
+
 def test_training_never_opens_a_test_crop(
     synthetic, tmp_path, mlflow_tracking, monkeypatch
 ) -> None:

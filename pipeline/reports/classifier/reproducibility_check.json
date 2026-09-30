@@ -1,0 +1,163 @@
+{
+  "inputs": {
+    "both_finished": true,
+    "same_code": true,
+    "same_config": true,
+    "same_device": true,
+    "same_library_versions": true,
+    "same_manifest": true,
+    "same_seeds": true,
+    "test_split_untouched": true
+  },
+  "max_abs_metric_difference": {
+    "train_accuracy": 0.0,
+    "train_loss": 0.0,
+    "val_accuracy": 0.0,
+    "val_loss": 0.0
+  },
+  "outcomes": {
+    "metrics_within_tolerance": true,
+    "same_final_weights": true,
+    "same_initial_weights": true,
+    "same_number_of_epochs": true,
+    "same_sample_order": true
+  },
+  "reproducible": true,
+  "run_a": {
+    "config": {
+      "architecture": "resnet18",
+      "augment": "True",
+      "batch_size": "32",
+      "dropout": "0.3",
+      "early_stopping": {
+        "min_delta": 0.0,
+        "monitor": "val_loss",
+        "patience": 5
+      },
+      "freeze_backbone": "False",
+      "hidden_layers": [
+        256
+      ],
+      "image_size": "128",
+      "learning_rate": "0.001",
+      "max_epochs": "2",
+      "momentum": "0.9",
+      "num_workers": "0",
+      "optimizer": "adam",
+      "pretrained": "True",
+      "seeds": {
+        "augmentation": 42,
+        "init": 42,
+        "shuffle": 42
+      },
+      "weight_decay": "0.0"
+    },
+    "device": "cuda",
+    "device_name": "NVIDIA GeForce RTX 2060 with Max-Q Design",
+    "final_state_sha256": "5715dee49246299db12e86420423047a1eb8d710b9824a92b3690588c91e5013",
+    "git_commit": "4c5c855a9e99a4d771f5c249045df7e70593f171",
+    "history": {
+      "train_accuracy": [
+        0.904054054054054,
+        0.918918918918919
+      ],
+      "train_loss": [
+        0.22148198952545992,
+        0.2378929652072288
+      ],
+      "val_accuracy": [
+        0.8866995073891626,
+        0.8571428571428571
+      ],
+      "val_loss": [
+        0.6381669335177379,
+        0.3294985079266168
+      ]
+    },
+    "initial_state_sha256": "cb94fede04128f73b2c33de6a54e38af9d22f82800932cd859b5e22502314e33",
+    "manifest_sha256": "394743403f8a263b462687b733272e9993d7dddaea6a1229f8ee2896b82f3f7d",
+    "run_id": "f9d963c6dda84efbabfdb9e29c518487",
+    "run_name": "repro-check-a",
+    "sample_order": {
+      "1": "78708dc1deb82a2c104f93b65a3f106dfb996588cb54c4541c54b014944a5716",
+      "2": "56039cc51dfbcfe3896aecccf0b16e077df3fe0e51e01b51e10be5848702748e"
+    },
+    "seeds": {
+      "seed.augmentation": "42",
+      "seed.init": "42",
+      "seed.partition": "42",
+      "seed.shuffle": "42"
+    },
+    "status": "FINISHED",
+    "test_split_used": "false"
+  },
+  "run_b": {
+    "config": {
+      "architecture": "resnet18",
+      "augment": "True",
+      "batch_size": "32",
+      "dropout": "0.3",
+      "early_stopping": {
+        "min_delta": 0.0,
+        "monitor": "val_loss",
+        "patience": 5
+      },
+      "freeze_backbone": "False",
+      "hidden_layers": [
+        256
+      ],
+      "image_size": "128",
+      "learning_rate": "0.001",
+      "max_epochs": "2",
+      "momentum": "0.9",
+      "num_workers": "0",
+      "optimizer": "adam",
+      "pretrained": "True",
+      "seeds": {
+        "augmentation": 42,
+        "init": 42,
+        "shuffle": 42
+      },
+      "weight_decay": "0.0"
+    },
+    "device": "cuda",
+    "device_name": "NVIDIA GeForce RTX 2060 with Max-Q Design",
+    "final_state_sha256": "5715dee49246299db12e86420423047a1eb8d710b9824a92b3690588c91e5013",
+    "git_commit": "4c5c855a9e99a4d771f5c249045df7e70593f171",
+    "history": {
+      "train_accuracy": [
+        0.904054054054054,
+        0.918918918918919
+      ],
+      "train_loss": [
+        0.22148198952545992,
+        0.2378929652072288
+      ],
+      "val_accuracy": [
+        0.8866995073891626,
+        0.8571428571428571
+      ],
+      "val_loss": [
+        0.6381669335177379,
+        0.3294985079266168
+      ]
+    },
+    "initial_state_sha256": "cb94fede04128f73b2c33de6a54e38af9d22f82800932cd859b5e22502314e33",
+    "manifest_sha256": "394743403f8a263b462687b733272e9993d7dddaea6a1229f8ee2896b82f3f7d",
+    "run_id": "1c06f19501144287bb79c33dd7489b8b",
+    "run_name": "repro-check-b",
+    "sample_order": {
+      "1": "78708dc1deb82a2c104f93b65a3f106dfb996588cb54c4541c54b014944a5716",
+      "2": "56039cc51dfbcfe3896aecccf0b16e077df3fe0e51e01b51e10be5848702748e"
+    },
+    "seeds": {
+      "seed.augmentation": "42",
+      "seed.init": "42",
+      "seed.partition": "42",
+      "seed.shuffle": "42"
+    },
+    "status": "FINISHED",
+    "test_split_used": "false"
+  },
+  "tolerance": 1e-06
+}

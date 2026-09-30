@@ -87,3 +87,42 @@ def test_recompute_from_predictions_csv_alone(tmp_path) -> None:
     recomputed = metrics_from_predictions_csv(path)
 
     assert recomputed == classification_metrics(confusion_matrix(Y_TRUE, Y_PRED, 2), CLASSES)
+
+
+def _write_predictions(path, rows, extra_columns=()) -> None:
+    fieldnames = ["true_label", "predicted_label", *extra_columns, "prob_car", "prob_person"]
+    with path.open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.DictWriter(handle, fieldnames=fieldnames)
+        writer.writeheader()
+        for row in rows:
+            writer.writerow({"prob_car": 0.5, "prob_person": 0.5, **row})
+
+
+@pytest.mark.parametrize("column", ["true_label", "predicted_label"])
+def test_a_prediction_with_an_unknown_class_is_refused(tmp_path, column) -> None:
+    path = tmp_path / "predictions.csv"
+    row = {"true_label": "car", "predicted_label": "person", column: "dog"}
+    _write_predictions(path, [row])
+
+    with pytest.raises(ValueError, match="dog"):
+        metrics_from_predictions_csv(path)
+
+
+def test_a_correct_column_that_contradicts_the_labels_is_refused(tmp_path) -> None:
+    path = tmp_path / "predictions.csv"
+    rows = [
+        {"true_label": "car", "predicted_label": "car", "correct": "True"},
+        {"true_label": "person", "predicted_label": "car", "correct": "True"},
+    ]
+    _write_predictions(path, rows, extra_columns=["correct"])
+
+    with pytest.raises(ValueError, match="correct"):
+        metrics_from_predictions_csv(path)
+
+
+def test_an_empty_predictions_file_is_refused(tmp_path) -> None:
+    path = tmp_path / "predictions.csv"
+    _write_predictions(path, [])
+
+    with pytest.raises(ValueError, match="no predictions"):
+        metrics_from_predictions_csv(path)
