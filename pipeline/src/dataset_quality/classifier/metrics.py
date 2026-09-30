@@ -83,11 +83,28 @@ def metrics_from_predictions_csv(path: Path) -> dict:
     """Recompute everything from the per-sample CSV alone (independent audit, T3-3.8)."""
 
     with path.open(newline="", encoding="utf-8") as handle:
-        rows = list(csv.DictReader(handle))
+        reader = csv.DictReader(handle)
+        columns = reader.fieldnames or []
+        rows = list(reader)
+    if not rows:
+        raise ValueError(f"{path}: no predictions")
     class_names = sorted(
-        column.removeprefix("prob_") for column in rows[0] if column.startswith("prob_")
+        column.removeprefix("prob_") for column in columns if column.startswith("prob_")
     )
     index = {name: i for i, name in enumerate(class_names)}
+    for number, row in enumerate(rows, start=2):
+        for column in ("true_label", "predicted_label"):
+            if row[column] not in index:
+                raise ValueError(
+                    f"{path}:{number}: {column} {row[column]!r} is not one of {class_names}"
+                )
+        if "correct" in row:
+            expected = row["true_label"] == row["predicted_label"]
+            if row["correct"] != str(expected):
+                raise ValueError(
+                    f"{path}:{number}: correct={row['correct']!r} contradicts "
+                    f"true_label={row['true_label']!r}, predicted_label={row['predicted_label']!r}"
+                )
     y_true = [index[row["true_label"]] for row in rows]
     y_pred = [index[row["predicted_label"]] for row in rows]
     return classification_metrics(confusion_matrix(y_true, y_pred, len(class_names)), class_names)
