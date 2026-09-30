@@ -238,6 +238,28 @@ python -m dataset_quality.classifier recompute
 python scripts/classifier_mutation_check.py --report reports/classifier/mutation_check.json
 ```
 
+### Verifying the evidence (evaluator runbook)
+
+From `pipeline/` with `PYTHONPATH=src` and `MLFLOW_TRACKING_URI=http://localhost:5000`
+(`docker compose up -d mlflow` from the repo root). Every command is read-only except where
+noted, exits non-zero when its check fails, and was run against the real store; its output
+is committed next to it in `reports/classifier/`.
+
+| # | What | Command | Committed output |
+|---|---|---|---|
+| 1 | Classifier tests | `python -m pytest tests/classifier -q` | — |
+| 2 | Invalid config rejected (exit 2) | `python -m dataset_quality.classifier validate-config --json '{"batch_size": 0}'` | — |
+| 3 | Two repeat runs are reproducible | `python -m dataset_quality.classifier repro-check <RUN_A> <RUN_B>`; or `repro-check --train --json '{"max_epochs": 2}' --device cuda` (trains two short runs on train/val, logs them to `t3-smoke-repro`, never to the official experiment) | `reproducibility_check.json` |
+| 4 | The 10 valid MLflow runs, 7 hyperparameters × ≥ 2 values, logging complete | `python -m dataset_quality.classifier list-runs` | `audit_runs.json` |
+| 5 | Candidate chosen by validation, before the test, re-selection refused | `python -m dataset_quality.classifier audit-selection` | `audit_selection.json` |
+| 6 | Final evaluation re-run with the selected checkpoint, nothing overwritten | `python -m dataset_quality.classifier evaluate --audit` | — |
+| 7 | Metrics from `test_predictions.csv` alone, vs `test_evaluation.json` and MLflow | `python -m dataset_quality.classifier recompute`; `python -m dataset_quality.classifier audit-test` | `audit_test.json` |
+| 8 | Mutation check (isolated temp copy) | `python scripts/classifier_mutation_check.py --report reports/classifier/mutation_check.json` | `mutation_check.json` |
+
+Step 6 needs the selected checkpoint (`artifacts/classifier/selected/<run_id>/model.pt`, as
+written by `select`) and the crops. Steps 3 (`--train`) and 8 train or run the suite and take
+minutes; the others take seconds.
+
 Checkpoints, per-run artifacts and the local MLflow store are git-ignored
 (`artifacts/`, `mlflow.db`, `mlruns/`, `*.pt`); the evidence that must be versioned —
 `reports/classifier/selection.json`, `test_evaluation.json`, `test_predictions.csv`,
