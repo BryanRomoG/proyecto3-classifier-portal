@@ -168,3 +168,25 @@ def test_gpu_training_saves_a_cpu_loadable_checkpoint(synthetic, tmp_path, mlflo
     assert run.data.params["device"] == "cuda"
     assert all(t.device.type == "cpu" for t in checkpoint["state_dict"].values())
     assert load_checkpoint(outcome.checkpoint_path).class_names == ["car", "person"]
+
+
+def test_a_max_epochs_change_that_never_bites_is_not_a_new_valid_run(
+    synthetic, tmp_path, mlflow_tracking
+) -> None:
+    """Early stopping at epoch 2 makes max_epochs 3 vs 5 produce bit-identical weights."""
+
+    from dataset_quality.classifier.experiments import valid_runs
+
+    stop_early = {"monitor": "val_loss", "patience": 1, "min_delta": 1.0}
+    first = _train(synthetic, tmp_path, max_epochs=3, early_stopping=stop_early)
+    second = _train(synthetic, tmp_path, max_epochs=5, early_stopping=stop_early)
+    rows = {
+        row["run_id"]: row
+        for row in valid_runs(
+            MlflowClient(), "test-exp", outcome_manifest_sha(synthetic), ["car", "person"]
+        )
+    }
+
+    assert rows[first.run_id]["valid"] is True
+    assert rows[second.run_id]["valid"] is False
+    assert rows[second.run_id]["invalid_reasons"][0].startswith("identical final weights")

@@ -8,7 +8,8 @@ two distinct values.
 
 ``valid_runs`` applies the same rubric to what MLflow actually holds: finished, same
 manifest and class list, weights really changed, more than one epoch, and no exact
-duplicate of another valid run's searched parameters.
+duplicate of another valid run — neither in its searched parameters nor in its final
+weights (a parameter that never took effect produces the same model, not a new result).
 """
 
 from __future__ import annotations
@@ -124,6 +125,7 @@ def valid_runs(
     )
     accepted: list[dict] = []
     seen: set[tuple[str, ...]] = set()
+    seen_weights: dict[str, str] = {}
     for run in runs:
         tags, metrics, params = run.data.tags, run.data.metrics, run.data.params
         reasons = []
@@ -136,8 +138,13 @@ def valid_runs(
         if metrics.get("stopped_epoch", 0) < 2:
             reasons.append("fewer than 2 epochs")
         signature = _searched_signature(params)
+        final_weights = tags.get("final_state_sha256", "")
         if not reasons and signature in seen:
             reasons.append("duplicate of an earlier valid run")
+        if not reasons and final_weights in seen_weights:
+            # Different parameters that never took effect (e.g. a max_epochs above the
+            # early-stopping point) yield bit-identical weights: same result, not a new run.
+            reasons.append(f"identical final weights to run {seen_weights[final_weights]}")
         row = {
             "run_id": run.info.run_id,
             "run_name": run.info.run_name,
@@ -155,5 +162,6 @@ def valid_runs(
         }
         if not reasons:
             seen.add(signature)
+            seen_weights[final_weights] = run.info.run_name
         accepted.append(row)
     return accepted

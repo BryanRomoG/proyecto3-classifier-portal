@@ -69,3 +69,11 @@ runs:
 
   - name: r10-deep-head-dropout05
     overrides: {hidden_layers: [512, 128], dropout: 0.5}
+
+  # Added after the first 10 runs, before selection and before the test was opened:
+  # r06 (max_epochs 25) early-stopped at epoch 9 exactly like r01 and produced
+  # bit-identical weights (final_state_sha256 cc3c30cb...), so it is an exact duplicate
+  # and does not count. A cap below the early-stopping point makes max_epochs actually
+  # change the result. r06 stays in MLflow as evidence; `list-runs` marks it invalid.
+  - name: r11-epochs4
+    overrides: {max_epochs: 4}
