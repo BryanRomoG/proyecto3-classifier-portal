@@ -1,0 +1,194 @@
+{
+  "baseline": {
+    "passed": true,
+    "summary": "67 passed in 93.50s (0:01:33)",
+    "seconds": 105.8
+  },
+  "mutants": [
+    {
+      "name": "keep-last-epoch",
+      "rule": "early stopping restores the best epoch's weights, not the last",
+      "file": "src/dataset_quality/classifier/early_stopping.py",
+      "original": "model.load_state_dict(best_state)",
+      "mutated": "pass  # mutant: keep the last epoch's weights",
+      "killed": true,
+      "pytest_summary": "1 failed in 0.47s",
+      "seconds": 9.3
+    },
+    {
+      "name": "ignore-min-delta",
+      "rule": "an improvement smaller than min_delta does not count",
+      "file": "src/dataset_quality/classifier/early_stopping.py",
+      "original": "return value < self.best_value - self.min_delta",
+      "mutated": "return value < self.best_value",
+      "killed": true,
+      "pytest_summary": "1 failed, 1 passed in 0.49s",
+      "seconds": 8.8
+    },
+    {
+      "name": "transposed-matrix",
+      "rule": "confusion matrix rows are the true class, columns the predicted class",
+      "file": "src/dataset_quality/classifier/metrics.py",
+      "original": "matrix[truth][predicted] += 1",
+      "mutated": "matrix[predicted][truth] += 1",
+      "killed": true,
+      "pytest_summary": "1 failed in 0.44s",
+      "seconds": 8.5
+    },
+    {
+      "name": "rounded-threshold",
+      "rule": "the 85% target is compared without rounding",
+      "file": "src/dataset_quality/classifier/metrics.py",
+      "original": "return total > 0 and correct / total >= threshold",
+      "mutated": "return total > 0 and round(correct / total, 2) >= threshold",
+      "killed": true,
+      "pytest_summary": "1 failed, 3 passed in 0.48s",
+      "seconds": 8.8
+    },
+    {
+      "name": "unsealed-test",
+      "rule": "the test split cannot be read before the final evaluation",
+      "file": "src/dataset_quality/classifier/data.py",
+      "original": "if split == \"test\" and not allow_test:",
+      "mutated": "if False:  # mutant: test split readable by anyone",
+      "killed": true,
+      "pytest_summary": "1 failed in 0.71s",
+      "seconds": 10.2
+    },
+    {
+      "name": "augmented-validation",
+      "rule": "augmentation only touches train; validation is deterministic",
+      "file": "src/dataset_quality/classifier/data.py",
+      "original": "eval_transform(image_size),\n        split=\"val\",",
+      "mutated": "train_transform(image_size, augment=augment),\n        split=\"val\",",
+      "killed": true,
+      "pytest_summary": "1 failed, 5 passed in 1.58s",
+      "seconds": 10.5
+    },
+    {
+      "name": "ignore-duplicate-leakage",
+      "rule": "a manifest whose duplicate-group leakage check failed is refused",
+      "file": "src/dataset_quality/classifier/data.py",
+      "original": "if manifest.leakage_check.status != \"pass\" or manifest.leakage_check.leaked_pairs:",
+      "mutated": "if False:  # mutant: accept leaked duplicate groups",
+      "killed": true,
+      "pytest_summary": "1 failed, 4 passed in 1.21s",
+      "seconds": 10.4
+    },
+    {
+      "name": "shared-source-image",
+      "rule": "a source image cannot be in two splits",
+      "file": "src/dataset_quality/classifier/data.py",
+      "original": "other = seen_images.setdefault(image_id, section.name)\n            if other != section.name:",
+      "mutated": "other = seen_images.setdefault(image_id, section.name)\n            if False:  # mutant: same original image in two splits",
+      "killed": true,
+      "pytest_summary": "1 failed, 3 passed in 1.10s",
+      "seconds": 9.7
+    },
+    {
+      "name": "no-optimizer-step",
+      "rule": "one optimizer step per minibatch actually updates the weights",
+      "file": "src/dataset_quality/classifier/training.py",
+      "original": "self.optimizer.step()",
+      "mutated": "pass  # mutant: no optimizer step",
+      "killed": true,
+      "pytest_summary": "1 failed, 5 passed in 33.24s",
+      "seconds": 43.3
+    },
+    {
+      "name": "reversed-class-map",
+      "rule": "the reloaded model uses the checkpoint's own class map",
+      "file": "src/dataset_quality/classifier/predict.py",
+      "original": "class_names = list(checkpoint[\"class_names\"])",
+      "mutated": "class_names = sorted(checkpoint[\"class_names\"], reverse=True)",
+      "killed": true,
+      "pytest_summary": "1 failed, 5 passed in 31.73s",
+      "seconds": 42.2
+    },
+    {
+      "name": "wrong-preprocessing",
+      "rule": "inference uses the checkpoint's evaluation preprocessing",
+      "file": "src/dataset_quality/classifier/predict.py",
+      "original": "transform=eval_transform(config.image_size),",
+      "mutated": "transform=eval_transform(config.image_size // 4),",
+      "killed": true,
+      "pytest_summary": "1 failed, 6 passed in 37.33s",
+      "seconds": 47.3
+    },
+    {
+      "name": "second-test-evaluation",
+      "rule": "the test is evaluated only once (repeat only as a non-overwriting audit)",
+      "file": "src/dataset_quality/classifier/evaluation.py",
+      "original": "if report_path.exists() and not audit:",
+      "mutated": "if False:  # mutant: allow a second final evaluation",
+      "killed": true,
+      "pytest_summary": "1 failed, 2 passed in 20.14s",
+      "seconds": 29.6
+    },
+    {
+      "name": "swapped-checkpoint",
+      "rule": "the evaluated checkpoint is exactly the selected one",
+      "file": "src/dataset_quality/classifier/evaluation.py",
+      "original": "if _sha256(checkpoint) != selection[\"checkpoint_sha256\"]:",
+      "mutated": "if False:  # mutant: evaluate any checkpoint",
+      "killed": true,
+      "pytest_summary": "1 failed, 4 passed in 32.09s",
+      "seconds": 41.9
+    },
+    {
+      "name": "select-after-test",
+      "rule": "selection is refused once the test was opened",
+      "file": "src/dataset_quality/classifier/selection.py",
+      "original": "if (report_dir / EVALUATION_REPORT).exists():",
+      "mutated": "if False:  # mutant: re-select after seeing the test",
+      "killed": true,
+      "pytest_summary": "1 failed, 2 passed in 21.46s",
+      "seconds": 31.0
+    },
+    {
+      "name": "select-on-test-metric",
+      "rule": "the selection policy may only use validation metrics",
+      "file": "src/dataset_quality/classifier/selection.py",
+      "original": "if not metric.startswith((\"best_val_\", \"val_\")):",
+      "mutated": "if False:  # mutant: any metric, test included",
+      "killed": true,
+      "pytest_summary": "1 failed, 5 passed in 0.63s",
+      "seconds": 9.4
+    },
+    {
+      "name": "identical-weights-count",
+      "rule": "a run with the same final weights as another is not a new valid run",
+      "file": "src/dataset_quality/classifier/experiments.py",
+      "original": "if not reasons and final_weights in seen_weights:",
+      "mutated": "if False:  # mutant: identical weights count as a new run",
+      "killed": true,
+      "pytest_summary": "1 failed, 10 passed in 46.62s",
+      "seconds": 56.9
+    },
+    {
+      "name": "constant-hyperparameter",
+      "rule": "the grid must vary each of the seven hyperparameters",
+      "file": "src/dataset_quality/classifier/experiments.py",
+      "original": "if len(distinct) < 2:",
+      "mutated": "if False:  # mutant: constant hyperparameters allowed",
+      "killed": true,
+      "pytest_summary": "1 failed, 2 passed in 0.57s",
+      "seconds": 9.3
+    },
+    {
+      "name": "unknown-field-ignored",
+      "rule": "an unknown training parameter is rejected, not silently ignored",
+      "file": "src/dataset_quality/classifier/config.py",
+      "original": "\"\"\"A complete, validated training job description.\"\"\"\n\n    model_config = ConfigDict(extra=\"forbid\")",
+      "mutated": "\"\"\"A complete, validated training job description.\"\"\"\n\n    model_config = ConfigDict(extra=\"ignore\")",
+      "killed": true,
+      "pytest_summary": "1 failed, 14 passed in 0.46s",
+      "seconds": 9.0
+    }
+  ],
+  "killed": 18,
+  "total": 18,
+  "all_killed": true,
+  "ran_at": "2026-09-30T17:07:24.523834+00:00",
+  "python": "3.12.10"
+}
