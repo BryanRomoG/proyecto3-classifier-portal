@@ -22,7 +22,7 @@ base:
   optimizer: adam
   batch_size: 32
   max_epochs: 15
-  learning_rate: 0.001
+  learning_rate: 0.0003    # 1e-3 gave val_loss 1.63 after epoch 1 in the smoke run (validation only)
   image_size: 128
   hidden_layers: [256]
   dropout: 0.3
@@ -46,8 +46,8 @@ runs:
   - name: r02-sgd
     overrides: {optimizer: sgd, learning_rate: 0.01}
 
-  - name: r03-adamw-lr3e-4
-    overrides: {optimizer: adamw, learning_rate: 0.0003}
+  - name: r03-adamw-lr1e-4
+    overrides: {optimizer: adamw, learning_rate: 0.0001}
 
   - name: r04-batch64
     overrides: {batch_size: 64}
