@@ -6,11 +6,12 @@ import json
 import math
 
 import pytest
+import torch
 from mlflow.tracking import MlflowClient
 from PIL import Image
 from tests_classifier_helpers import tiny_config
 
-from dataset_quality.classifier.data import split_records
+from dataset_quality.classifier.data import eval_transform, split_records
 from dataset_quality.classifier.predict import CheckpointError, load_checkpoint, predict_paths
 from dataset_quality.classifier.training import train
 
@@ -128,6 +129,23 @@ def test_checkpoint_reloads_in_a_clean_loader_and_predicts(
         assert sum(prediction.probabilities.values()) == pytest.approx(1.0, abs=1e-5)
     correct = sum(p.label == r.category_name for p, r in zip(predictions, val, strict=True))
     assert correct / len(val) >= 0.8, "the synthetic classes are trivially separable"
+
+
+def test_reloaded_model_preprocesses_exactly_like_validation_and_test(
+    synthetic, tmp_path, mlflow_tracking
+) -> None:
+    # T3-4.2 mutation "wrong-preprocessing" survived the suite before this test existed.
+    outcome = _train(synthetic, tmp_path, max_epochs=1)
+    classifier = load_checkpoint(outcome.checkpoint_path)
+    record = split_records(synthetic.manifest, "val")[0]
+    with Image.open(synthetic.root / record.relative_path) as image:
+        rgb = image.convert("RGB")
+
+    reloaded = classifier.transform(rgb)
+    evaluated = eval_transform(classifier.config.image_size)(rgb)
+
+    assert list(reloaded.shape[-2:]) == classifier.checkpoint["preprocessing"]["resize"]
+    assert torch.equal(reloaded, evaluated)
 
 
 def test_an_empty_or_foreign_checkpoint_is_refused(tmp_path) -> None:

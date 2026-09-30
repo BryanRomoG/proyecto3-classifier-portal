@@ -1,0 +1,254 @@
+{
+  "baseline": {
+    "passed": true,
+    "summary": "67 passed in 94.14s (0:01:34)",
+    "seconds": 110.1
+  },
+  "mutants": [
+    {
+      "name": "keep-last-epoch",
+      "rule": "early stopping restores the best epoch's weights, not the last",
+      "file": "src/dataset_quality/classifier/early_stopping.py",
+      "original": "model.load_state_dict(best_state)",
+      "mutated": "pass  # mutant: keep the last epoch's weights",
+      "killed": true,
+      "detected_by": [
+        "tests/classifier/test_t3_classifier_early_stopping.py::test_stops_after_patience_and_restores_best_not_last"
+      ],
+      "pytest_summary": "1 failed in 0.78s",
+      "seconds": 10.1
+    },
+    {
+      "name": "ignore-min-delta",
+      "rule": "an improvement smaller than min_delta does not count",
+      "file": "src/dataset_quality/classifier/early_stopping.py",
+      "original": "return value < self.best_value - self.min_delta",
+      "mutated": "return value < self.best_value",
+      "killed": true,
+      "detected_by": [
+        "tests/classifier/test_t3_classifier_early_stopping.py::test_improvements_smaller_than_min_delta_do_not_count"
+      ],
+      "pytest_summary": "1 failed, 1 passed in 0.62s",
+      "seconds": 10.2
+    },
+    {
+      "name": "transposed-matrix",
+      "rule": "confusion matrix rows are the true class, columns the predicted class",
+      "file": "src/dataset_quality/classifier/metrics.py",
+      "original": "matrix[truth][predicted] += 1",
+      "mutated": "matrix[predicted][truth] += 1",
+      "killed": true,
+      "detected_by": [
+        "tests/classifier/test_t3_classifier_metrics.py::test_matrix_rows_are_true_columns_are_predicted"
+      ],
+      "pytest_summary": "1 failed in 0.53s",
+      "seconds": 10.0
+    },
+    {
+      "name": "rounded-threshold",
+      "rule": "the 85% target is compared without rounding",
+      "file": "src/dataset_quality/classifier/metrics.py",
+      "original": "return total > 0 and correct / total >= threshold",
+      "mutated": "return total > 0 and round(correct / total, 2) >= threshold",
+      "killed": true,
+      "detected_by": [
+        "tests/classifier/test_t3_classifier_metrics.py::test_threshold_is_compared_without_rounding"
+      ],
+      "pytest_summary": "1 failed, 3 passed in 0.64s",
+      "seconds": 10.6
+    },
+    {
+      "name": "unsealed-test",
+      "rule": "the test split cannot be read before the final evaluation",
+      "file": "src/dataset_quality/classifier/data.py",
+      "original": "if split == \"test\" and not allow_test:",
+      "mutated": "if False:  # mutant: test split readable by anyone",
+      "killed": true,
+      "detected_by": [
+        "tests/classifier/test_t3_classifier_data.py::test_test_split_is_sealed_unless_explicitly_opened"
+      ],
+      "pytest_summary": "1 failed in 0.88s",
+      "seconds": 13.3
+    },
+    {
+      "name": "augmented-validation",
+      "rule": "augmentation only touches train; validation is deterministic",
+      "file": "src/dataset_quality/classifier/data.py",
+      "original": "eval_transform(image_size),\n        split=\"val\",",
+      "mutated": "train_transform(image_size, augment=augment),\n        split=\"val\",",
+      "killed": true,
+      "detected_by": [
+        "tests/classifier/test_t3_classifier_data.py::test_augmentation_only_touches_train"
+      ],
+      "pytest_summary": "1 failed, 5 passed in 1.48s",
+      "seconds": 10.3
+    },
+    {
+      "name": "ignore-duplicate-leakage",
+      "rule": "a manifest whose duplicate-group leakage check failed is refused",
+      "file": "src/dataset_quality/classifier/data.py",
+      "original": "if manifest.leakage_check.status != \"pass\" or manifest.leakage_check.leaked_pairs:",
+      "mutated": "if False:  # mutant: accept leaked duplicate groups",
+      "killed": true,
+      "detected_by": [
+        "tests/classifier/test_t3_classifier_data.py::test_a_failed_duplicate_leakage_check_is_refused"
+      ],
+      "pytest_summary": "1 failed, 4 passed in 1.50s",
+      "seconds": 11.3
+    },
+    {
+      "name": "shared-source-image",
+      "rule": "a source image cannot be in two splits",
+      "file": "src/dataset_quality/classifier/data.py",
+      "original": "other = seen_images.setdefault(image_id, section.name)\n            if other != section.name:",
+      "mutated": "other = seen_images.setdefault(image_id, section.name)\n            if False:  # mutant: same original image in two splits",
+      "killed": true,
+      "detected_by": [
+        "tests/classifier/test_t3_classifier_data.py::test_an_image_in_two_splits_is_refused"
+      ],
+      "pytest_summary": "1 failed, 3 passed in 1.24s",
+      "seconds": 12.5
+    },
+    {
+      "name": "no-optimizer-step",
+      "rule": "one optimizer step per minibatch actually updates the weights",
+      "file": "src/dataset_quality/classifier/training.py",
+      "original": "self.optimizer.step()",
+      "mutated": "pass  # mutant: no optimizer step",
+      "killed": true,
+      "detected_by": [
+        "tests/classifier/test_t3_classifier_training.py::test_checkpoint_reloads_in_a_clean_loader_and_predicts"
+      ],
+      "pytest_summary": "1 failed, 5 passed in 43.72s",
+      "seconds": 54.6
+    },
+    {
+      "name": "reversed-class-map",
+      "rule": "the reloaded model uses the checkpoint's own class map",
+      "file": "src/dataset_quality/classifier/predict.py",
+      "original": "class_names = list(checkpoint[\"class_names\"])",
+      "mutated": "class_names = sorted(checkpoint[\"class_names\"], reverse=True)",
+      "killed": true,
+      "detected_by": [
+        "tests/classifier/test_t3_classifier_training.py::test_checkpoint_reloads_in_a_clean_loader_and_predicts"
+      ],
+      "pytest_summary": "1 failed, 5 passed in 34.69s",
+      "seconds": 47.2
+    },
+    {
+      "name": "wrong-preprocessing",
+      "rule": "inference uses the checkpoint's evaluation preprocessing",
+      "file": "src/dataset_quality/classifier/predict.py",
+      "original": "transform=eval_transform(config.image_size),",
+      "mutated": "transform=eval_transform(config.image_size // 4),",
+      "killed": true,
+      "detected_by": [
+        "tests/classifier/test_t3_classifier_training.py::test_reloaded_model_preprocesses_exactly_like_validation_and_test"
+      ],
+      "pytest_summary": "1 failed, 6 passed in 41.40s",
+      "seconds": 52.5
+    },
+    {
+      "name": "second-test-evaluation",
+      "rule": "the test is evaluated only once (repeat only as a non-overwriting audit)",
+      "file": "src/dataset_quality/classifier/evaluation.py",
+      "original": "if report_path.exists() and not audit:",
+      "mutated": "if False:  # mutant: allow a second final evaluation",
+      "killed": true,
+      "detected_by": [
+        "tests/classifier/test_t3_classifier_selection_evaluation.py::test_the_test_is_opened_only_once_and_selection_is_then_frozen"
+      ],
+      "pytest_summary": "1 failed, 2 passed in 20.76s",
+      "seconds": 30.5
+    },
+    {
+      "name": "swapped-checkpoint",
+      "rule": "the evaluated checkpoint is exactly the selected one",
+      "file": "src/dataset_quality/classifier/evaluation.py",
+      "original": "if _sha256(checkpoint) != selection[\"checkpoint_sha256\"]:",
+      "mutated": "if False:  # mutant: evaluate any checkpoint",
+      "killed": true,
+      "detected_by": [
+        "tests/classifier/test_t3_classifier_selection_evaluation.py::test_a_swapped_checkpoint_is_refused"
+      ],
+      "pytest_summary": "1 failed, 4 passed in 32.07s",
+      "seconds": 42.5
+    },
+    {
+      "name": "select-after-test",
+      "rule": "selection is refused once the test was opened",
+      "file": "src/dataset_quality/classifier/selection.py",
+      "original": "if (report_dir / EVALUATION_REPORT).exists():",
+      "mutated": "if False:  # mutant: re-select after seeing the test",
+      "killed": true,
+      "detected_by": [
+        "tests/classifier/test_t3_classifier_selection_evaluation.py::test_the_test_is_opened_only_once_and_selection_is_then_frozen"
+      ],
+      "pytest_summary": "1 failed, 2 passed in 22.23s",
+      "seconds": 32.8
+    },
+    {
+      "name": "select-on-test-metric",
+      "rule": "the selection policy may only use validation metrics",
+      "file": "src/dataset_quality/classifier/selection.py",
+      "original": "if not metric.startswith((\"best_val_\", \"val_\")):",
+      "mutated": "if False:  # mutant: any metric, test included",
+      "killed": true,
+      "detected_by": [
+        "tests/classifier/test_t3_classifier_experiments.py::test_a_policy_on_a_test_metric_is_refused"
+      ],
+      "pytest_summary": "1 failed, 5 passed in 0.58s",
+      "seconds": 9.8
+    },
+    {
+      "name": "identical-weights-count",
+      "rule": "a run with the same final weights as another is not a new valid run",
+      "file": "src/dataset_quality/classifier/experiments.py",
+      "original": "if not reasons and final_weights in seen_weights:",
+      "mutated": "if False:  # mutant: identical weights count as a new run",
+      "killed": true,
+      "detected_by": [
+        "tests/classifier/test_t3_classifier_training.py::test_a_max_epochs_change_that_never_bites_is_not_a_new_valid_run"
+      ],
+      "pytest_summary": "1 failed, 10 passed in 47.30s",
+      "seconds": 58.8
+    },
+    {
+      "name": "constant-hyperparameter",
+      "rule": "the grid must vary each of the seven hyperparameters",
+      "file": "src/dataset_quality/classifier/experiments.py",
+      "original": "if len(distinct) < 2:",
+      "mutated": "if False:  # mutant: constant hyperparameters allowed",
+      "killed": true,
+      "detected_by": [
+        "tests/classifier/test_t3_classifier_experiments.py::test_grid_with_a_constant_hyperparameter_is_refused"
+      ],
+      "pytest_summary": "1 failed, 2 passed in 0.60s",
+      "seconds": 10.9
+    },
+    {
+      "name": "unknown-field-ignored",
+      "rule": "an unknown training parameter is rejected, not silently ignored",
+      "file": "src/dataset_quality/classifier/config.py",
+      "original": "\"\"\"A complete, validated training job description.\"\"\"\n\n    model_config = ConfigDict(extra=\"forbid\")",
+      "mutated": "\"\"\"A complete, validated training job description.\"\"\"\n\n    model_config = ConfigDict(extra=\"ignore\")",
+      "killed": true,
+      "detected_by": [
+        "tests/classifier/test_t3_classifier_config.py::test_invalid_values_are_rejected_with_a_useful_message[payload13-batch_sise]"
+      ],
+      "pytest_summary": "1 failed, 14 passed in 0.62s",
+      "seconds": 10.4
+    }
+  ],
+  "restored": {
+    "files_identical_to_pristine_copy": true,
+    "passed": true,
+    "summary": "67 passed in 95.87s (0:01:35)",
+    "seconds": 107.7
+  },
+  "killed": 18,
+  "total": 18,
+  "all_killed": true,
+  "ran_at": "2026-09-30T17:48:18.022123+00:00",
+  "python": "3.12.10"
+}
