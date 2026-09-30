@@ -208,6 +208,9 @@ python -m dataset_quality.classifier evaluate --confirm-final-test
 # audit at any time (never overwrites): recompute from checkpoint and from the CSV alone
 python -m dataset_quality.classifier evaluate --audit
 python -m dataset_quality.classifier recompute
+
+# T3-4.2 mutation check: break each critical rule in an isolated temp copy, the suite must fail
+python scripts/classifier_mutation_check.py --report reports/classifier/mutation_check.json
 ```
 
 Checkpoints, per-run artifacts and the local MLflow store are git-ignored
