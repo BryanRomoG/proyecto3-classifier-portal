@@ -113,6 +113,26 @@ class TrainingConfig(BaseModel):
         return flat
 
 
+def validation_issues(payload: object) -> list[dict[str, str]]:
+    """One ``{"field", "message"}`` per problem in a candidate config, ``[]`` when valid.
+
+    ``field`` is the dotted path of the offending value (``early_stopping.patience``) so a
+    form can attach the message to the right input.
+    """
+
+    try:
+        TrainingConfig.model_validate(payload)
+    except ValidationError as error:
+        return [
+            {
+                "field": ".".join(str(part) for part in item["loc"]) or "<root>",
+                "message": item["msg"],
+            }
+            for item in error.errors()
+        ]
+    return []
+
+
 def validation_errors(payload: object) -> list[str]:
     """Human-readable errors for a candidate config, ``[]`` when it is valid.
 
@@ -120,15 +140,7 @@ def validation_errors(payload: object) -> list[str]:
     never reaches the trainer and never leaves a phantom job behind.
     """
 
-    try:
-        TrainingConfig.model_validate(payload)
-    except ValidationError as error:
-        messages = []
-        for item in error.errors():
-            location = ".".join(str(part) for part in item["loc"]) or "<root>"
-            messages.append(f"{location}: {item['msg']}")
-        return messages
-    return []
+    return [f"{issue['field']}: {issue['message']}" for issue in validation_issues(payload)]
 
 
 def json_schema() -> dict[str, object]:

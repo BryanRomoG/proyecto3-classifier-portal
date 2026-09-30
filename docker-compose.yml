@@ -110,6 +110,17 @@ services:
       - "8100:8100"
     restart: on-failure:5
 
+  # T3-1.4: training-config API (pipeline/src/dataset_quality/classifier/http_app.py).
+  # Validates with the same Pydantic TrainingConfig the trainer reads, so the portal and
+  # job creation reject an invalid value before any job exists. Imports no torch/MLflow:
+  # runs on the base pipeline image. The frontend reaches it as /classifier-api/.
+  classifier-api:
+    build: ./pipeline
+    command: ["python", "-m", "dataset_quality.classifier", "serve", "--port", "8200"]
+    ports:
+      - "8200:8200"
+    restart: on-failure:5
+
   # MLflow tracking server (T3-3.1): the 10 classifier runs, their per-epoch metrics and
   # artifacts (checkpoint, curves) live here. Metadata in SQLite and artifacts proxied by
   # the server (--serve-artifacts), both bind-mounted from pipeline/mlflow-data/ (git-
@@ -141,6 +152,7 @@ services:
     depends_on:
       - backend
       - copilot
+      - classifier-api
     ports:
       - "8080:80"
 

@@ -14,6 +14,7 @@ standard ``MLFLOW_TRACKING_URI`` (default ``sqlite:///mlflow.db`` in this direct
     python -m dataset_quality.classifier evaluate --audit
     python -m dataset_quality.classifier recompute
     python -m dataset_quality.classifier predict --checkpoint model.pt img.png
+    python -m dataset_quality.classifier serve --port 8200
 """
 
 from __future__ import annotations
@@ -262,6 +263,15 @@ def cmd_predict(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_serve(args: argparse.Namespace) -> int:
+    import uvicorn
+
+    from dataset_quality.classifier.http_app import build_app
+
+    uvicorn.run(build_app(), host=args.host, port=args.port)
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="python -m dataset_quality.classifier")
     commands = parser.add_subparsers(dest="command", required=True)
@@ -327,12 +337,17 @@ def build_parser() -> argparse.ArgumentParser:
     sub.add_argument("--checkpoint", type=Path, required=True)
     sub.add_argument("images", type=Path, nargs="+")
     sub.set_defaults(handler=cmd_predict)
+
+    sub = commands.add_parser("serve")
+    sub.add_argument("--host", default="0.0.0.0")
+    sub.add_argument("--port", type=int, default=int(os.environ.get("CLASSIFIER_API_PORT", 8200)))
+    sub.set_defaults(handler=cmd_serve)
     return parser
 
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
-    if args.command not in {"schema", "validate-config", "grid-check", "recompute"}:
+    if args.command not in {"schema", "validate-config", "grid-check", "recompute", "serve"}:
         import mlflow
 
         mlflow.set_tracking_uri(os.environ.get("MLFLOW_TRACKING_URI", DEFAULT_TRACKING_URI))
