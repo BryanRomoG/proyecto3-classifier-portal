@@ -185,6 +185,7 @@
   "run_name": "r03-adamw-lr1e-4",
   "selected_at": "2026-09-30T14:48:58.317648+00:00",
   "selected_metric_value": 0.9802955665024631,
-  "test_opened": false,
+  "test_evaluated_at": "2026-09-30T14:49:23.191936+00:00",
+  "test_opened": true,
   "valid_runs": 10
 }

@@ -1,0 +1,198 @@
+{
+  "accuracy": 0.9894736842105263,
+  "checkpoint_sha256": "fe1c2370cb9d811d32cccc27edf0beeb3c440fe758c467a9e3fb91a73e6047cb",
+  "classes": [
+    "car",
+    "person"
+  ],
+  "classes_below_target_recall": {},
+  "confusion_matrix": {
+    "columns": "predicted",
+    "labels": [
+      "car",
+      "person"
+    ],
+    "matrix": [
+      [
+        54,
+        0
+      ],
+      [
+        1,
+        40
+      ]
+    ],
+    "rows": "true"
+  },
+  "correct": 94,
+  "dataset_version": "v1.0.0",
+  "evaluated_at": "2026-09-30T14:49:23.191936+00:00",
+  "examples": {
+    "car": {
+      "correct": [
+        {
+          "annotation_id": 257,
+          "confidence": 0.9999809265136719,
+          "correct": true,
+          "predicted_label": "car",
+          "prob_car": 0.9999809265136719,
+          "prob_person": 1.910499850055203e-05,
+          "relative_path": "data/processed/crops/car/257.png",
+          "source_image_id": 253,
+          "true_label": "car"
+        },
+        {
+          "annotation_id": 104,
+          "confidence": 0.9999752044677734,
+          "correct": true,
+          "predicted_label": "car",
+          "prob_car": 0.9999752044677734,
+          "prob_person": 2.481777482898906e-05,
+          "relative_path": "data/processed/crops/car/104.png",
+          "source_image_id": 67,
+          "true_label": "car"
+        },
+        {
+          "annotation_id": 350,
+          "confidence": 0.9999585151672363,
+          "correct": true,
+          "predicted_label": "car",
+          "prob_car": 0.9999585151672363,
+          "prob_person": 4.15307076764293e-05,
+          "relative_path": "data/processed/crops/car/350.png",
+          "source_image_id": 283,
+          "true_label": "car"
+        },
+        {
+          "annotation_id": 165,
+          "confidence": 0.9999575614929199,
+          "correct": true,
+          "predicted_label": "car",
+          "prob_car": 0.9999575614929199,
+          "prob_person": 4.2431001929799095e-05,
+          "relative_path": "data/processed/crops/car/165.png",
+          "source_image_id": 97,
+          "true_label": "car"
+        },
+        {
+          "annotation_id": 269,
+          "confidence": 0.9999551773071289,
+          "correct": true,
+          "predicted_label": "car",
+          "prob_car": 0.9999551773071289,
+          "prob_person": 4.4826650992035866e-05,
+          "relative_path": "data/processed/crops/car/269.png",
+          "source_image_id": 307,
+          "true_label": "car"
+        }
+      ],
+      "errors": []
+    },
+    "person": {
+      "correct": [
+        {
+          "annotation_id": 891,
+          "confidence": 0.9999129772186279,
+          "correct": true,
+          "predicted_label": "person",
+          "prob_car": 8.702601189725101e-05,
+          "prob_person": 0.9999129772186279,
+          "relative_path": "data/processed/crops/person/891.png",
+          "source_image_id": 140,
+          "true_label": "person"
+        },
+        {
+          "annotation_id": 901,
+          "confidence": 0.9998037219047546,
+          "correct": true,
+          "predicted_label": "person",
+          "prob_car": 0.00019635558419395238,
+          "prob_person": 0.9998037219047546,
+          "relative_path": "data/processed/crops/person/901.png",
+          "source_image_id": 139,
+          "true_label": "person"
+        },
+        {
+          "annotation_id": 889,
+          "confidence": 0.9997809529304504,
+          "correct": true,
+          "predicted_label": "person",
+          "prob_car": 0.00021907892369199544,
+          "prob_person": 0.9997809529304504,
+          "relative_path": "data/processed/crops/person/889.png",
+          "source_image_id": 140,
+          "true_label": "person"
+        },
+        {
+          "annotation_id": 204,
+          "confidence": 0.9996956586837769,
+          "correct": true,
+          "predicted_label": "person",
+          "prob_car": 0.00030440487898886204,
+          "prob_person": 0.9996956586837769,
+          "relative_path": "data/processed/crops/person/204.png",
+          "source_image_id": 115,
+          "true_label": "person"
+        },
+        {
+          "annotation_id": 115,
+          "confidence": 0.9996471405029297,
+          "correct": true,
+          "predicted_label": "person",
+          "prob_car": 0.00035280970041640103,
+          "prob_person": 0.9996471405029297,
+          "relative_path": "data/processed/crops/person/115.png",
+          "source_image_id": 73,
+          "true_label": "person"
+        }
+      ],
+      "errors": [
+        {
+          "annotation_id": 56,
+          "confidence": 0.8934769034385681,
+          "correct": false,
+          "predicted_label": "car",
+          "prob_car": 0.8934769034385681,
+          "prob_person": 0.10652312636375427,
+          "relative_path": "data/processed/crops/person/56.png",
+          "source_image_id": 39,
+          "true_label": "person"
+        }
+      ]
+    }
+  },
+  "macro_f1": 0.9892400045305243,
+  "majority_baseline": {
+    "accuracy": 0.5684210526315789,
+    "chosen_from": "train split label frequency",
+    "class": "car",
+    "correct": 54
+  },
+  "manifest_sha256": "394743403f8a263b462687b733272e9993d7dddaea6a1229f8ee2896b82f3f7d",
+  "meets_target": true,
+  "most_confused": {
+    "count": 1,
+    "predicted": "car",
+    "true": "person"
+  },
+  "per_class": {
+    "car": {
+      "f1": 0.9908256880733944,
+      "precision": 0.9818181818181818,
+      "predicted": 55,
+      "recall": 1.0,
+      "support": 54
+    },
+    "person": {
+      "f1": 0.9876543209876543,
+      "precision": 1.0,
+      "predicted": 40,
+      "recall": 0.975609756097561,
+      "support": 41
+    }
+  },
+  "run_id": "44725ac6b1704fed8b06bc4f846651d8",
+  "selected_at": "2026-09-30T14:48:58.317648+00:00",
+  "target_accuracy": 0.85,
+  "total": 95
+}
