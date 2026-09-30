@@ -34,6 +34,7 @@ def selected(synthetic, tmp_path, mlflow_tracking):
             pipeline_root=synthetic.root,
             experiment_name="exp",
             run_name=name,
+            device="cpu",
         )
     policy = tmp_path / "policy.yaml"
     policy.write_text(

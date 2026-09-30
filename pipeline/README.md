@@ -172,6 +172,7 @@ Setup (on top of the normal pipeline install):
 
 ```bash
 pip install -r requirements-train.txt --extra-index-url https://download.pytorch.org/whl/cpu
+# NVIDIA GPU: same versions from .../whl/cu128 instead; `train`/`run-grid` take --device auto|cpu|cuda
 docker compose up -d mlflow                       # from the repo root: MLflow on :5000
 export MLFLOW_TRACKING_URI=http://localhost:5000  # without it the CLI falls back to sqlite:///mlflow.db
 ```
@@ -213,6 +214,10 @@ Checkpoints, per-run artifacts and the local MLflow store are git-ignored
 (`artifacts/`, `mlflow.db`, `mlruns/`, `*.pt`); the evidence that must be versioned —
 `reports/classifier/selection.json`, `test_evaluation.json`, `test_predictions.csv`,
 `confusion_matrix.png` — is small and committed, in that chronological order.
+
+Device: `--device auto` (default) uses CUDA when available; weights are initialised on CPU
+and the checkpoint is always saved on CPU. The device, GPU name and CUDA/cuDNN versions are
+logged per run, and all official runs must share one device.
 
 Known non-determinism: on CPU with `num_workers=0` repeated runs are bit-identical (the
 tests assert equal final weight hashes). On GPU some cuDNN kernels are not deterministic;

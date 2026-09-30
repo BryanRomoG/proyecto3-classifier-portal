@@ -80,6 +80,7 @@ def cmd_train(args: argparse.Namespace) -> int:
         pipeline_root=Path.cwd(),
         experiment_name=args.experiment,
         run_name=args.run_name,
+        device=args.device,
         on_epoch=lambda epoch, m: print(f"[train] epoch {epoch}: {m}", file=sys.stderr),
     )
     _print(outcome.__dict__)
@@ -138,6 +139,7 @@ def cmd_run_grid(args: argparse.Namespace) -> int:
             run_name=run.name,
             tags={"grid_run": run.name, "grid_file": grid.path.name, "grid_sha256": grid.sha256},
             on_epoch=lambda e, m, n=run.name: print(f"[{n}] epoch {e}: {m}", file=sys.stderr),
+            device=args.device,
         )
         print(
             f"[run-grid] {run.name}: run {outcome.run_id} best epoch {outcome.best_epoch} "
@@ -259,6 +261,7 @@ def build_parser() -> argparse.ArgumentParser:
         group.add_argument("--config", type=Path)
         group.add_argument("--json")
         sub.add_argument("--run-name")
+        sub.add_argument("--device", choices=["auto", "cpu", "cuda"], default="auto")
         common(sub)
         sub.set_defaults(handler=handler)
 
@@ -270,6 +273,7 @@ def build_parser() -> argparse.ArgumentParser:
     sub.add_argument("--grid", type=Path, default=DEFAULT_GRID)
     sub.add_argument("--only", nargs="*")
     sub.add_argument("--rerun", action="store_true")
+    sub.add_argument("--device", choices=["auto", "cpu", "cuda"], default="auto")
     common(sub)
     sub.set_defaults(handler=cmd_run_grid)
 

@@ -24,6 +24,7 @@ def _train(synthetic, tmp_path, **overrides):
         pipeline_root=synthetic.root,
         experiment_name="test-exp",
         run_name="smoke",
+        device="cpu",
     )
 
 
@@ -135,3 +136,35 @@ def test_an_empty_or_foreign_checkpoint_is_refused(tmp_path) -> None:
 
     with pytest.raises(CheckpointError):
         load_checkpoint(empty)
+
+
+def test_auto_device_and_explicit_cpu_resolve() -> None:
+    import torch
+
+    from dataset_quality.classifier.training import resolve_device
+
+    assert resolve_device("cpu").type == "cpu"
+    assert resolve_device("auto").type == ("cuda" if torch.cuda.is_available() else "cpu")
+
+
+def test_gpu_training_saves_a_cpu_loadable_checkpoint(synthetic, tmp_path, mlflow_tracking) -> None:
+    import torch
+
+    if not torch.cuda.is_available():
+        pytest.skip("no CUDA device on this machine")
+    outcome = train(
+        tiny_config(max_epochs=2),
+        manifest_path=synthetic.manifest_path,
+        data_root=synthetic.root,
+        output_root=tmp_path / "runs",
+        pipeline_root=synthetic.root,
+        experiment_name="test-exp",
+        run_name="gpu",
+        device="cuda",
+    )
+    run = MlflowClient().get_run(outcome.run_id)
+    checkpoint = torch.load(outcome.checkpoint_path, map_location="cpu", weights_only=True)
+
+    assert run.data.params["device"] == "cuda"
+    assert all(t.device.type == "cpu" for t in checkpoint["state_dict"].values())
+    assert load_checkpoint(outcome.checkpoint_path).class_names == ["car", "person"]

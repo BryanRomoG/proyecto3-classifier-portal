@@ -95,9 +95,11 @@ class MinibatchTrainer:
         train_set: CropDataset,
         val_set: CropDataset,
         config: TrainingConfig,
+        device: torch.device | None = None,
     ) -> None:
         self.model = model
         self.optimizer = optimizer
+        self.device = device or torch.device("cpu")
         self.criterion = nn.CrossEntropyLoss()
         self.sampler = SeededEpochSampler(len(train_set), config.seeds.shuffle)
         self.train_loader = DataLoader(
@@ -120,6 +122,7 @@ class MinibatchTrainer:
         self.model.train()
         total_loss, correct, seen = 0.0, 0, 0
         for inputs, targets in self.train_loader:
+            inputs, targets = inputs.to(self.device), targets.to(self.device)
             self.optimizer.zero_grad(set_to_none=True)
             logits = self.model(inputs)
             loss = self.criterion(logits, targets)
@@ -136,6 +139,7 @@ class MinibatchTrainer:
         self.model.eval()
         total_loss, correct, seen = 0.0, 0, 0
         for inputs, targets in self.val_loader:
+            inputs, targets = inputs.to(self.device), targets.to(self.device)
             logits = self.model(inputs)
             total_loss += self.criterion(logits, targets).item() * targets.size(0)
             correct += (logits.argmax(dim=1) == targets).sum().item()
@@ -165,6 +169,16 @@ def plot_curves(result: FitResult, path: Path) -> None:
     plt.close(figure)
 
 
+def resolve_device(requested: str = "auto") -> torch.device:
+    """``auto`` -> CUDA when available, else CPU; ``cuda`` fails loudly if absent."""
+
+    if requested == "auto":
+        return torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    if requested == "cuda" and not torch.cuda.is_available():
+        raise RuntimeError("device 'cuda' requested but torch.cuda.is_available() is False")
+    return torch.device(requested)
+
+
 def _write_json(path: Path, payload: object) -> None:
     path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
 
@@ -184,9 +198,15 @@ def train(
     run_name: str | None = None,
     tags: dict[str, str] | None = None,
     on_epoch: Callable[[int, dict[str, float]], None] | None = None,
+    device: str = "auto",
 ) -> TrainingOutcome:
-    """Train one model and log it as one MLflow run (tracking URI from the environment)."""
+    """Train one model and log it as one MLflow run (tracking URI from the environment).
 
+    Weights are initialised on CPU (so ``initial_state_sha256`` does not depend on the
+    device) and then moved to ``device``; the checkpoint is always saved on CPU.
+    """
+
+    target_device = resolve_device(device)
     loaded = load_manifest(manifest_path)
     class_names = class_names_from_manifest(loaded.manifest)
     lineage = dataset_lineage(loaded, pipeline_root)
@@ -199,9 +219,10 @@ def train(
     seed_everything(config.seeds.init)
     model = build_model(config, len(class_names))
     initial_sha = state_dict_sha256(model)
+    model = model.to(target_device)
     seed_everything(config.seeds.augmentation)
     optimizer = build_optimizer(config, model)
-    trainer = MinibatchTrainer(model, optimizer, train_set, val_set, config)
+    trainer = MinibatchTrainer(model, optimizer, train_set, val_set, config, target_device)
     weights = describe_weights(config, model)
 
     mlflow.set_experiment(experiment_name)
@@ -235,6 +256,7 @@ def train(
                 "train_crops": len(train_set),
                 "val_crops": len(val_set),
                 "steps_per_epoch": trainer.steps_per_epoch,
+                "device": target_device.type,
             }
         )
         mlflow.set_tags(
@@ -247,6 +269,11 @@ def train(
                 "trainable_layers": str(weights["trainable_layers"]),
                 "initial_state_sha256": initial_sha,
                 "test_split_used": "false",
+                "device_name": (
+                    torch.cuda.get_device_name(target_device)
+                    if target_device.type == "cuda"
+                    else "cpu"
+                ),
                 **(tags or {}),
             }
         )
@@ -287,7 +314,7 @@ def train(
             {
                 "format": CHECKPOINT_FORMAT,
                 "run_id": run_id,
-                "state_dict": model.state_dict(),
+                "state_dict": {k: v.detach().cpu() for k, v in model.state_dict().items()},
                 "config": config.model_dump(mode="json"),
                 "class_names": class_names,
                 "preprocessing": preprocessing_spec(config.image_size),
@@ -304,7 +331,7 @@ def train(
         _write_json(output_dir / "config.json", config.model_dump(mode="json"))
         _write_json(output_dir / "class_map.json", dict(enumerate(class_names)))
         _write_json(output_dir / "history.json", result.history)
-        _write_json(output_dir / "environment.json", environment_snapshot())
+        _write_json(output_dir / "environment.json", environment_snapshot(target_device))
         _write_json(output_dir / "weights.json", weights)
         _write_json(output_dir / "lineage.json", lineage)
         _write_json(output_dir / "sample_order.json", trainer.order_digests)

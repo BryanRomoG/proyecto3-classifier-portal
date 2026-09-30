@@ -52,7 +52,7 @@ def enable_determinism() -> None:
     torch.backends.cudnn.deterministic = True
 
 
-def environment_snapshot() -> dict[str, object]:
+def environment_snapshot(device: torch.device | None = None) -> dict[str, object]:
     versions: dict[str, str] = {}
     for package in TRACKED_PACKAGES:
         try:
@@ -63,7 +63,14 @@ def environment_snapshot() -> dict[str, object]:
         "python": sys.version.split()[0],
         "platform": platform.platform(),
         "machine": platform.machine(),
-        "device": "cuda" if torch.cuda.is_available() else "cpu",
+        "device": (device or torch.device("cpu")).type,
+        "cuda_device_name": (
+            torch.cuda.get_device_name(device)
+            if device is not None and device.type == "cuda"
+            else None
+        ),
+        "torch_cuda_version": torch.version.cuda,
+        "cudnn_version": torch.backends.cudnn.version() if torch.cuda.is_available() else None,
         "torch_num_threads": torch.get_num_threads(),
         "deterministic_algorithms": torch.are_deterministic_algorithms_enabled(),
         "packages": versions,
