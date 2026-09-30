@@ -1,0 +1,17 @@
+# T3 classifier (training, MLflow runs, evaluation, inference) — ML extras.
+#
+# Installed ON TOP of the hash-locked requirements.txt, in a second command:
+#
+#   pip install --require-hashes -r requirements.txt -r requirements-dev.txt
+#   pip install -r requirements-train.txt --extra-index-url https://download.pytorch.org/whl/cpu
+#
+# Kept out of requirements.txt on purpose: torch/torchvision are CPU wheels from PyTorch's
+# own index (the PyPI Linux wheels pull ~2 GB of CUDA libraries), and hash-locking them
+# across Windows/Linux/macOS with pip-compile is not portable. The versions are still
+# pinned exactly, and every run records the versions it actually used in MLflow
+# (environment.json). The shared deps (numpy, pillow, pydantic, ...) stay pinned with
+# hashes in requirements.txt and are not repeated here.
+torch==2.8.0
+torchvision==0.23.0
+mlflow==3.16.1
+matplotlib==3.11.2
