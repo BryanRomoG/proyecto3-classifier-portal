@@ -60,8 +60,8 @@ desarrollo local):
 docker compose up --build
 ```
 
-Esto levanta los cinco servicios por defecto (`mariadb`, `minio`, `backend`,
-`copilot` y `frontend`, ver `docker-compose.yml`) -- **no** incluye el
+Esto levanta los siete servicios por defecto (`mariadb`, `minio`, `backend`,
+`copilot`, `classifier-api`, `mlflow` y `frontend`, ver `docker-compose.yml`) -- **no** incluye el
 pipeline de Python, que vive detrás de un profile aparte (ver
 [Pipeline (Python)](#pipeline-python) más abajo). El Portal de Anotación
 (Proyecto 1, rutas `/dashboard`, `/search`, `/upload`) funciona con solo este
@@ -69,13 +69,17 @@ comando. **Las 6 pantallas de Dataset Quality** (`/overview`, `/analyzers`,
 `/splits`, `/versions`, `/copilot`, `/settings`) necesitan además que el
 pipeline haya corrido al menos una vez -- son las que leen
 `pipeline/data/interim/*.json` -- ver la sección de DVC más abajo para el
-comando exacto; sin eso, cargan pero sin datos. De esos cinco, tres
-exponen una URL a la que entrar desde el navegador (MariaDB no tiene UI
-propia, solo la usa `backend` internamente, y `copilot` es el servicio HTTP
-del Dataset Copilot que consume la pantalla `/copilot`, no una UI aparte):
+comando exacto; sin eso, cargan pero sin datos. MariaDB no tiene UI
+propia (solo la usa `backend` internamente); `copilot` es el servicio HTTP
+del Dataset Copilot que consume la pantalla `/copilot`, y `classifier-api`
+valida la configuración de entrenamiento con las mismas reglas que el
+entrenador (la Web App lo llama como `/classifier-api/`, ver
+`pipeline/README.md`). Las URLs para entrar desde el navegador:
 
 - Web App: http://localhost:8080
 - API (backend): http://localhost:3100
+- API de configuración de entrenamiento: http://localhost:8200/training/schema
+- MLflow (corridas del clasificador): http://localhost:5000
 - Consola de MinIO: http://localhost:9001 (usuario/clave: `minioadmin` / `minioadmin`)
 
 El backend aplica migraciones y siembra datos de ejemplo automáticamente al
