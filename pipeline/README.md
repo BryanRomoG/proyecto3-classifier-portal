@@ -198,6 +198,9 @@ python -m dataset_quality.classifier train --json '{"max_epochs": 2}' --run-name
 # 3. T3-3.1 the 10 official runs (resumable: runs that already have a valid run are skipped)
 python -m dataset_quality.classifier run-grid
 python -m dataset_quality.classifier list-runs          # valid run IDs, params, val metrics
+python -m dataset_quality.classifier export-runs --experiments t3-classifier t3-smoke-repro
+#   -> reports/classifier/mlflow_runs.json + curves/ (commit them: mlflow-data/ is git-ignored,
+#      so this snapshot is what a clean clone can audit; every run_id points back to MLflow)
 
 # 4. T3-3.2 select by validation -> reports/classifier/selection.json (commit it!)
 python -m dataset_quality.classifier select
