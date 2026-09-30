@@ -1,0 +1,15 @@
+# T3-3.2 — pre-declared candidate selection policy.
+#
+# Committed BEFORE the 10 official runs and before the test split is opened. The
+# `select` command only accepts validation metrics here (anything else is rejected), and it
+# refuses to run once reports/classifier/test_evaluation.json exists.
+#
+# Metric: the best validation accuracy each run reached (at its restored best epoch).
+# Ties: lower validation loss at that epoch, then the earliest run.
+
+metric: best_val_accuracy
+mode: max
+tie_breakers:
+  - metric: best_val_loss
+    mode: min
+min_valid_runs: 10

@@ -1,0 +1,71 @@
+# T3-3.1 — the 10 official MLflow runs of the classifier.
+#
+# Designed before any run (plan: "diseñar la matriz de 10 corridas el 28 sep") and
+# validated by `python -m dataset_quality.classifier grid-check`, which refuses the grid if
+# any of the seven searched hyperparameters (optimizer, batch_size, max_epochs,
+# learning_rate, image_size, hidden_layers, dropout) takes fewer than two values, if two
+# runs are identical, or if there are fewer than 10 runs.
+#
+# Everything outside the seven searched hyperparameters is fixed in `base` and shared by
+# every run: same architecture, same initial weights, same seeds, same early stopping.
+# All runs train on the same manifest and class list (checked again per run in MLflow).
+#
+# Each run changes one or two knobs from `base` (one-factor-at-a-time around a sensible
+# default) so the effect of each hyperparameter is readable in the Experiments page.
+
+experiment_name: t3-classifier
+
+base:
+  architecture: resnet18
+  pretrained: true          # torchvision ResNet18_Weights.IMAGENET1K_V1 backbone
+  freeze_backbone: false    # every layer is fine-tuned; the head starts from scratch
+  optimizer: adam
+  batch_size: 32
+  max_epochs: 15
+  learning_rate: 0.001
+  image_size: 128
+  hidden_layers: [256]
+  dropout: 0.3
+  weight_decay: 0.0001
+  momentum: 0.9
+  augment: true
+  num_workers: 0
+  early_stopping:
+    monitor: val_loss
+    patience: 4
+    min_delta: 0.001
+  seeds:
+    shuffle: 42
+    augmentation: 42
+    init: 42
+
+runs:
+  - name: r01-base
+    overrides: {}
+
+  - name: r02-sgd
+    overrides: {optimizer: sgd, learning_rate: 0.01}
+
+  - name: r03-adamw-lr3e-4
+    overrides: {optimizer: adamw, learning_rate: 0.0003}
+
+  - name: r04-batch64
+    overrides: {batch_size: 64}
+
+  - name: r05-batch16
+    overrides: {batch_size: 16}
+
+  - name: r06-epochs25
+    overrides: {max_epochs: 25}
+
+  - name: r07-img96
+    overrides: {image_size: 96}
+
+  - name: r08-img160-dropout0
+    overrides: {image_size: 160, dropout: 0.0}
+
+  - name: r09-linear-head
+    overrides: {hidden_layers: []}
+
+  - name: r10-deep-head-dropout05
+    overrides: {hidden_layers: [512, 128], dropout: 0.5}
