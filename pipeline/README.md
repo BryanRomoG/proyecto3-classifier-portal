@@ -244,7 +244,9 @@ python scripts/classifier_mutation_check.py --report reports/classifier/mutation
 ### Verifying the evidence (evaluator runbook)
 
 From `pipeline/` with `PYTHONPATH=src` and `MLFLOW_TRACKING_URI=http://localhost:5000`
-(`docker compose up -d mlflow` from the repo root). Every command is read-only except where
+(`docker compose up -d mlflow` from the repo root; on a clean clone, first restore the store
+with `dvc pull -r prod mlflow-data.dvc` and check it with `python
+scripts/verify_mlflow_restore.py`). Every command is read-only except where
 noted, exits non-zero when its check fails, and was run against the real store; its output
 is committed next to it in `reports/classifier/`.
 
