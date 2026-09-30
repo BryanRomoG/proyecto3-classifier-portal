@@ -178,7 +178,10 @@ export MLFLOW_TRACKING_URI=http://localhost:5000  # without it the CLI falls bac
 ```
 
 The `mlflow` Compose service keeps its SQLite store and the proxied artifacts in
-`pipeline/mlflow-data/` (git-ignored), so the runs survive `docker compose down`.
+`pipeline/mlflow-data/` (git-ignored), so the runs survive `docker compose down`. That folder
+is versioned with DVC as one output (`mlflow-data.dvc`); a clean clone restores it with
+`dvc pull -r prod mlflow-data.dvc` and checks it with `scripts/verify_mlflow_restore.py`
+(see `docs/t3-mlflow-dvc-handoff.md`, including the pending push to the `prod` remote).
 
 Runbook, from `pipeline/` with `PYTHONPATH=src`, **in this order** (the order is the
 protocol: selection is written before the test is ever read):
