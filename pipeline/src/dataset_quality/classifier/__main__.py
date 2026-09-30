@@ -8,6 +8,9 @@ standard ``MLFLOW_TRACKING_URI`` (default ``sqlite:///mlflow.db`` in this direct
     python -m dataset_quality.classifier grid-check
     python -m dataset_quality.classifier run-grid
     python -m dataset_quality.classifier list-runs
+    python -m dataset_quality.classifier audit-selection
+    python -m dataset_quality.classifier repro-check RUN_A RUN_B   (or --train --json '{...}')
+    python -m dataset_quality.classifier audit-test
     python -m dataset_quality.classifier export-runs
     python -m dataset_quality.classifier select
     python -m dataset_quality.classifier evaluate --confirm-final-test
@@ -32,6 +35,7 @@ DEFAULT_POLICY = Path("experiments/selection_policy.yaml")
 DEFAULT_RUNS_DIR = Path("artifacts/classifier/runs")
 DEFAULT_SELECTED_DIR = Path("artifacts/classifier/selected")
 DEFAULT_REPORT_DIR = Path("reports/classifier")
+REPRO_EXPERIMENT = "t3-smoke-repro"
 
 EXIT_INVALID = 2
 
@@ -154,20 +158,95 @@ def cmd_run_grid(args: argparse.Namespace) -> int:
 def cmd_list_runs(args: argparse.Namespace, experiment: str | None = None) -> int:
     from mlflow.tracking import MlflowClient
 
+    from dataset_quality.classifier.audit import audit_runs
     from dataset_quality.classifier.data import class_names_from_manifest, load_manifest
-    from dataset_quality.classifier.experiments import valid_runs
 
     loaded = load_manifest(args.manifest)
     classes = class_names_from_manifest(loaded.manifest)
-    rows = valid_runs(MlflowClient(), experiment or args.experiment, loaded.sha256, classes)
-    _print(
-        {
-            "manifest_sha256": loaded.sha256,
-            "valid_runs": sum(row["valid"] for row in rows),
-            "runs": rows,
-        }
+    audit = audit_runs(MlflowClient(), experiment or args.experiment, loaded.sha256, classes)
+    _print(audit)
+    return 0 if audit["meets_rubric"] else 1
+
+
+def cmd_audit_selection(args: argparse.Namespace) -> int:
+    from mlflow.tracking import MlflowClient
+
+    from dataset_quality.classifier.audit import audit_selection
+    from dataset_quality.classifier.data import class_names_from_manifest, load_manifest
+
+    loaded = load_manifest(args.manifest)
+    audit = audit_selection(
+        MlflowClient(),
+        report_dir=args.report_dir,
+        policy_path=args.policy,
+        experiment_name=args.experiment,
+        manifest_sha256=loaded.sha256,
+        classes=class_names_from_manifest(loaded.manifest),
     )
-    return 0
+    _print(audit)
+    return 0 if audit["passes"] else 1
+
+
+def cmd_repro_check(args: argparse.Namespace) -> int:
+    from mlflow.tracking import MlflowClient
+
+    from dataset_quality.classifier.audit import compare_runs
+
+    if args.train:
+        if args.experiment != REPRO_EXPERIMENT:
+            print(
+                f"[repro-check] --train only logs to {REPRO_EXPERIMENT!r}, never to the "
+                "official experiment",
+                file=sys.stderr,
+            )
+            return EXIT_INVALID
+        from dataset_quality.classifier.config import TrainingConfig, validation_errors
+        from dataset_quality.classifier.training import train
+
+        payload = _config_payload(args)
+        errors = validation_errors(payload)
+        if errors:
+            _print({"valid": False, "errors": errors})
+            return EXIT_INVALID
+        run_ids = [
+            train(
+                TrainingConfig.model_validate(payload),
+                manifest_path=args.manifest,
+                data_root=args.data_root,
+                output_root=args.runs_dir,
+                pipeline_root=Path.cwd(),
+                experiment_name=args.experiment,
+                run_name=f"repro-check-{label}",
+                device=args.device,
+            ).run_id
+            for label in ("a", "b")
+        ]
+    elif args.runs and len(args.runs) == 2:
+        run_ids = args.runs
+    else:
+        print("[repro-check] give two run IDs, or --train", file=sys.stderr)
+        return EXIT_INVALID
+
+    result = compare_runs(MlflowClient(), *run_ids, tolerance=args.tolerance)
+    if args.report:
+        args.report.write_text(json.dumps(result, indent=2, sort_keys=True), encoding="utf-8")
+    _print(result)
+    return 0 if result["reproducible"] else 1
+
+
+def cmd_audit_test(args: argparse.Namespace) -> int:
+    from dataset_quality.classifier.audit import audit_test_predictions
+
+    client = None
+    if not args.no_mlflow:
+        from mlflow.tracking import MlflowClient
+
+        client = MlflowClient()
+    audit = audit_test_predictions(
+        report_dir=args.report_dir, manifest_path=args.manifest, client=client
+    )
+    _print(audit)
+    return 0 if audit["matches"] else 1
 
 
 def cmd_export_runs(args: argparse.Namespace) -> int:
@@ -311,6 +390,29 @@ def build_parser() -> argparse.ArgumentParser:
     sub = commands.add_parser("list-runs")
     common(sub)
     sub.set_defaults(handler=cmd_list_runs)
+
+    sub = commands.add_parser("audit-selection")
+    sub.add_argument("--policy", type=Path, default=DEFAULT_POLICY)
+    common(sub)
+    sub.set_defaults(handler=cmd_audit_selection)
+
+    sub = commands.add_parser("repro-check")
+    sub.add_argument("runs", nargs="*", help="two MLflow run IDs to compare")
+    sub.add_argument("--train", action="store_true", help="train two short runs, then compare")
+    group = sub.add_mutually_exclusive_group()
+    group.add_argument("--config", type=Path)
+    group.add_argument("--json")
+    sub.add_argument("--device", choices=["auto", "cpu", "cuda"], default="auto")
+    sub.add_argument("--tolerance", type=float, default=1e-6)
+    sub.add_argument("--report", type=Path)
+    common(sub)
+    # Short repeat runs never go into the official experiment: they would change its counts.
+    sub.set_defaults(handler=cmd_repro_check, experiment=REPRO_EXPERIMENT)
+
+    sub = commands.add_parser("audit-test")
+    sub.add_argument("--no-mlflow", action="store_true", help="skip the MLflow comparison")
+    common(sub)
+    sub.set_defaults(handler=cmd_audit_test)
 
     sub = commands.add_parser("export-runs")
     sub.add_argument("--experiments", nargs="*", help="default: --experiment")
