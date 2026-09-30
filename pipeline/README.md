@@ -213,6 +213,7 @@ python -m dataset_quality.classifier grid-check
 python -m dataset_quality.classifier train --json '{"max_epochs": 2}' --run-name smoke
 
 # 2. T3-2.5 reproducibility: same config twice -> same epoch1_order_sha256 / final_state_sha256
+#    (result, per device: reports/classifier/reproducibility.md)
 python -m dataset_quality.classifier train --json '{"max_epochs": 2}' --run-name repro-a
 python -m dataset_quality.classifier train --json '{"max_epochs": 2}' --run-name repro-b
 
