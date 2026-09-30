@@ -63,3 +63,15 @@ pipeline/.dvc/tmp/
 # NO viva en git, y esto lo mantiene fuera aunque alguien lo extraiga aquí.
 .dq-env-bundle/
 .dq-env-bundle.zip
+
+# T3 classifier: weights, per-run artifacts and the local MLflow store never go to git
+# (weights are published to S3 by the model package; runs live in MLflow). Only the
+# small JSON/CSV/PNG evidence under pipeline/reports/classifier/ is versioned.
+pipeline/artifacts/
+pipeline/mlflow.db
+pipeline/mlruns/
+pipeline/mlartifacts/
+pipeline/mlflow-data/
+*.pt
+*.pth
+*.ckpt

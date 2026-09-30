@@ -148,6 +148,82 @@ counts per split and category, and the leakage result (pairs checked, zero leake
 never reads or exposes any model prediction or metric. `pipeline/data/processed/.gitignore`
 lists this artifact only; `dvc.lock` and the stage definition stay tracked.
 
+## Classifier: training, MLflow runs, selection and final test (T3-1.3 … T3-3.3)
+
+`src/dataset_quality/classifier/` trains the image classifier on the T3-1.2 manifest. It
+reads **only train and validation**; the test split is sealed (`split_records` raises
+`SealedTestSplitError`) until `evaluate` runs on a candidate already selected by
+validation.
+
+| Piece | File | What it guarantees |
+|---|---|---|
+| Config (7 searched hyperparameters + fixed ones) | `config.py` | strict pydantic model; invalid values rejected before a job exists (`validate-config`, `schema`) |
+| CNN | `model.py` | ResNet-18 (`ResNet18_Weights.IMAGENET1K_V1` backbone, head from scratch) or a from-scratch LeNet-style CNN; head = `hidden_layers` + `dropout`; weight origin and trainable layers declared |
+| Data | `data.py` | manifest re-checked for leakage (crops, images, duplicate groups); random augmentation only on train; val/test/inference share one deterministic preprocessing |
+| Seeds | `reproducibility.py`, `data.SeededEpochSampler` | separate `init` / `augmentation` / `shuffle` seeds + the manifest's partition seed; library versions and git commit recorded |
+| Loop | `training.py` | one `optimizer.step()` per minibatch; per-epoch train/val loss+accuracy to MLflow; `status.json` rewritten per epoch |
+| Early stopping | `early_stopping.py` | `monitor` / `patience` / `min_delta`; always restores the **best** epoch's weights |
+| 10 runs | `experiments.py`, `experiments/classifier_grid.yaml` | grid refused unless ≥ 10 runs, no duplicates, each of the 7 hyperparameters with ≥ 2 values |
+| Selection | `selection.py`, `experiments/selection_policy.yaml` | pre-declared validation metric; refuses after the test was opened |
+| Final test | `evaluation.py`, `metrics.py` | one-time evaluation (explicit `--confirm-final-test`), per-sample predictions CSV, matrix (rows = true), accuracy, macro F1, per-class P/R/F1, majority baseline, most confused pair; `--audit` recomputes without overwriting |
+| Inference | `predict.py` | reloads a checkpoint in a clean process with its class map and preprocessing |
+
+Setup (on top of the normal pipeline install):
+
+```bash
+pip install -r requirements-train.txt --extra-index-url https://download.pytorch.org/whl/cpu
+# NVIDIA GPU: same versions from .../whl/cu128 instead; `train`/`run-grid` take --device auto|cpu|cuda
+docker compose up -d mlflow                       # from the repo root: MLflow on :5000
+export MLFLOW_TRACKING_URI=http://localhost:5000  # without it the CLI falls back to sqlite:///mlflow.db
+```
+
+The `mlflow` Compose service keeps its SQLite store and the proxied artifacts in
+`pipeline/mlflow-data/` (git-ignored), so the runs survive `docker compose down`.
+
+Runbook, from `pipeline/` with `PYTHONPATH=src`, **in this order** (the order is the
+protocol: selection is written before the test is ever read):
+
+```bash
+# 0. the manifest must exist (DVC): data/processed/classifier_split_manifest.json
+PYTHONPATH=src dvc repro classifier_split
+
+# 1. check the grid, then smoke-test one short run
+python -m dataset_quality.classifier grid-check
+python -m dataset_quality.classifier train --json '{"max_epochs": 2}' --run-name smoke
+
+# 2. T3-2.5 reproducibility: same config twice -> same epoch1_order_sha256 / final_state_sha256
+python -m dataset_quality.classifier train --json '{"max_epochs": 2}' --run-name repro-a
+python -m dataset_quality.classifier train --json '{"max_epochs": 2}' --run-name repro-b
+
+# 3. T3-3.1 the 10 official runs (resumable: runs that already have a valid run are skipped)
+python -m dataset_quality.classifier run-grid
+python -m dataset_quality.classifier list-runs          # valid run IDs, params, val metrics
+
+# 4. T3-3.2 select by validation -> reports/classifier/selection.json (commit it!)
+python -m dataset_quality.classifier select
+
+# 5. T3-3.3 open the test ONCE -> reports/classifier/test_* (commit them)
+python -m dataset_quality.classifier evaluate --confirm-final-test
+
+# audit at any time (never overwrites): recompute from checkpoint and from the CSV alone
+python -m dataset_quality.classifier evaluate --audit
+python -m dataset_quality.classifier recompute
+```
+
+Checkpoints, per-run artifacts and the local MLflow store are git-ignored
+(`artifacts/`, `mlflow.db`, `mlruns/`, `*.pt`); the evidence that must be versioned —
+`reports/classifier/selection.json`, `test_evaluation.json`, `test_predictions.csv`,
+`confusion_matrix.png` — is small and committed, in that chronological order.
+
+Device: `--device auto` (default) uses CUDA when available; weights are initialised on CPU
+and the checkpoint is always saved on CPU. The device, GPU name and CUDA/cuDNN versions are
+logged per run, and all official runs must share one device.
+
+Known non-determinism: on CPU with `num_workers=0` repeated runs are bit-identical (the
+tests assert equal final weight hashes). On GPU some cuDNN kernels are not deterministic;
+`torch.use_deterministic_algorithms(True, warn_only=True)` is set and the device is
+recorded in `environment.json`.
+
 ## Dataset release & versioning (OPS-07)
 
 The `release` stage (`src/dataset_quality/versioning/__main__.py`) stamps each pipeline run as a dataset version and writes the full version timeline to `data/interim/versions.json` (`VersionsReport`, `copilot/contracts.py`). It reads and appends to a git-tracked ledger, `pipeline/data/version_history.json`, which is what makes a real diff against the *previous* release possible without re-reading old dataset files. That ledger is deliberately **not** a DVC dependency or output — it's a side effect the script appends to on every run, not a reproducibility input; wiring it into `dvc.yaml` would make `release` perpetually "dirty" against its own last write and break `dvc repro`'s rerun-avoidance for everything downstream of it.

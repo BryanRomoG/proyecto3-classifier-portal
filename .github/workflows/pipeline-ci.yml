@@ -48,8 +48,19 @@ jobs:
         working-directory: pipeline
         run: pip install --require-hashes -r requirements.txt -r requirements-dev.txt
 
+      # T3 classifier extras (torch CPU, torchvision, mlflow, matplotlib): pinned in
+      # requirements-train.txt, installed separately because the CPU torch wheels come
+      # from PyTorch's own index and cannot share the hash-locked install above.
+      - name: Install classifier extras
+        working-directory: pipeline
+        run: pip install -r requirements-train.txt --extra-index-url https://download.pytorch.org/whl/cpu
+
+      # CLASSIFIER_TESTS_REQUIRED=1 makes tests/classifier fail (never skip) if the
+      # extras above are missing, so this job cannot go green by skipping them.
       - name: pytest
         working-directory: pipeline
+        env:
+          CLASSIFIER_TESTS_REQUIRED: "1"
         run: pytest
 
   quality-gate:

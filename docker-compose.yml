@@ -110,6 +110,29 @@ services:
       - "8100:8100"
     restart: on-failure:5
 
+  # MLflow tracking server (T3-3.1): the 10 classifier runs, their per-epoch metrics and
+  # artifacts (checkpoint, curves) live here. Metadata in SQLite and artifacts proxied by
+  # the server (--serve-artifacts), both bind-mounted from pipeline/mlflow-data/ (git-
+  # ignored), so runs survive `docker compose down` and clients never need direct
+  # filesystem access. The trainer logs to it with MLFLOW_TRACKING_URI=http://localhost:5000
+  # from the host; other containers reach it as http://mlflow:5000.
+  mlflow:
+    image: ghcr.io/mlflow/mlflow:v3.16.1
+    command:
+      - mlflow
+      - server
+      - --host=0.0.0.0
+      - --port=5000
+      - --backend-store-uri=sqlite:////mlflow/mlflow.db
+      - --artifacts-destination=/mlflow/artifacts
+      - --serve-artifacts
+      - --allowed-hosts=localhost,localhost:5000,127.0.0.1:5000,mlflow,mlflow:5000
+    volumes:
+      - ./pipeline/mlflow-data:/mlflow
+    ports:
+      - "5000:5000"
+    restart: on-failure:5
+
   frontend:
     build:
       context: ./frontend
