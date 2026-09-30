@@ -71,6 +71,7 @@ pipeline/artifacts/
 pipeline/mlflow.db
 pipeline/mlruns/
 pipeline/mlartifacts/
+pipeline/mlflow-data/
 *.pt
 *.pth
 *.ckpt

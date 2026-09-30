@@ -172,8 +172,12 @@ Setup (on top of the normal pipeline install):
 
 ```bash
 pip install -r requirements-train.txt --extra-index-url https://download.pytorch.org/whl/cpu
-export MLFLOW_TRACKING_URI=sqlite:///mlflow.db   # or the team's MLflow server URL
+docker compose up -d mlflow                       # from the repo root: MLflow on :5000
+export MLFLOW_TRACKING_URI=http://localhost:5000  # without it the CLI falls back to sqlite:///mlflow.db
 ```
+
+The `mlflow` Compose service keeps its SQLite store and the proxied artifacts in
+`pipeline/mlflow-data/` (git-ignored), so the runs survive `docker compose down`.
 
 Runbook, from `pipeline/` with `PYTHONPATH=src`, **in this order** (the order is the
 protocol: selection is written before the test is ever read):
