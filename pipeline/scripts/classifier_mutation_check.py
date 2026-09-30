@@ -10,13 +10,16 @@ original file before the next mutant. A mutant is *killed* when the suite fails.
     python scripts/classifier_mutation_check.py --report reports/classifier/mutation_check.json
 
 Each mutant runs its most relevant test file first, then the rest of ``tests/classifier``,
-with ``-x``: a killed mutant stops at the first failure, a
-surviving one runs the whole suite. Exit code 0 only when every mutant is killed.
+with ``-x``: a killed mutant stops at the first failure (recorded in ``detected_by``), a
+surviving one runs the whole suite. After the last mutant the copy is compared byte for
+byte with its pristine state and the suite runs once more (``restored``). Exit code 0 only
+when every mutant is killed and the restored copy is identical and green.
 """
 
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import shutil
@@ -195,12 +198,12 @@ MUTANTS = [
 ]
 
 
-def _pytest(workdir: Path, first: str | None) -> tuple[int, str, float]:
+def _pytest(workdir: Path, first: str | None) -> tuple[int, str, list[str], float]:
     # Explicit file list, relevant file first: pytest drops a file argument's siblings when
     # the same run also names their directory, so "file + directory" would run one file only.
     files = sorted(p.name for p in (workdir / TESTS).glob("test_*.py"))
     ordered = ([first] if first else []) + [name for name in files if name != first]
-    command = [sys.executable, "-m", "pytest", "-x", "-q", "-p", "no:cacheprovider"]
+    command = [sys.executable, "-m", "pytest", "-x", "-q", "-rf", "-p", "no:cacheprovider"]
     command += [str(TESTS / name) for name in ordered]
     env = {**os.environ, "PYTHONPATH": str(workdir / "src"), "CLASSIFIER_TESTS_REQUIRED": "1"}
     started = time.monotonic()
@@ -208,7 +211,11 @@ def _pytest(workdir: Path, first: str | None) -> tuple[int, str, float]:
         command, cwd=workdir, env=env, capture_output=True, text=True, check=False
     )
     lines = [line for line in completed.stdout.splitlines() if line.strip()]
-    return completed.returncode, lines[-1] if lines else "", time.monotonic() - started
+    failed = [
+        line.removeprefix("FAILED ").split(" - ")[0] for line in lines if line.startswith("FAILED ")
+    ]
+    summary = lines[-1] if lines else ""
+    return completed.returncode, summary, failed, time.monotonic() - started
 
 
 def _copy_pipeline(target: Path) -> None:
@@ -219,12 +226,22 @@ def _copy_pipeline(target: Path) -> None:
     shutil.copy2(PIPELINE / "pyproject.toml", target / "pyproject.toml")
 
 
+def _digests(root: Path) -> dict[str, str]:
+    return {
+        path.relative_to(root).as_posix(): hashlib.sha256(path.read_bytes()).hexdigest()
+        for name in ("src", "tests", "experiments")
+        for path in sorted((root / name).rglob("*"))
+        if path.is_file() and "__pycache__" not in path.parts
+    }
+
+
 def run(mutants: list[Mutant]) -> dict:
     with tempfile.TemporaryDirectory(prefix="classifier-mutants-") as tmp:
         workdir = Path(tmp)
         _copy_pipeline(workdir)
+        pristine = _digests(workdir)
 
-        code, summary, seconds = _pytest(workdir, None)
+        code, summary, _, seconds = _pytest(workdir, None)
         baseline = {"passed": code == 0, "summary": summary, "seconds": round(seconds, 1)}
         print(f"[baseline] {'PASS' if code == 0 else 'FAIL'}: {summary}", file=sys.stderr)
         if code != 0:
@@ -233,17 +250,20 @@ def run(mutants: list[Mutant]) -> dict:
         results = []
         for mutant in mutants:
             path = workdir / mutant.file
-            original = path.read_text(encoding="utf-8")
+            raw = path.read_bytes()
+            original = raw.decode("utf-8")
             occurrences = original.count(mutant.original)
             if occurrences != 1:
                 raise SystemExit(
                     f"{mutant.name}: expected 1 occurrence in {mutant.file}, found {occurrences}"
                 )
-            path.write_text(original.replace(mutant.original, mutant.mutated), encoding="utf-8")
+            # Bytes, not write_text: on Windows write_text rewrites LF as CRLF, so the
+            # "restored" file would no longer match the original byte for byte.
+            path.write_bytes(original.replace(mutant.original, mutant.mutated).encode("utf-8"))
             try:
-                code, summary, seconds = _pytest(workdir, mutant.first_tests)
+                code, summary, failed, seconds = _pytest(workdir, mutant.first_tests)
             finally:
-                path.write_text(original, encoding="utf-8")
+                path.write_bytes(raw)
             killed = code != 0
             verdict = "KILLED" if killed else "SURVIVED"
             print(f"[{mutant.name}] {verdict}: {summary}", file=sys.stderr)
@@ -255,13 +275,30 @@ def run(mutants: list[Mutant]) -> dict:
                     "original": mutant.original.strip(),
                     "mutated": mutant.mutated.strip(),
                     "killed": killed,
+                    "detected_by": failed,
                     "pytest_summary": summary,
                     "seconds": round(seconds, 1),
                 }
             )
+
+        # Every mutant was undone: the copy must again match its pristine state byte for byte,
+        # and the suite must be green again (RED -> restore -> GREEN).
+        identical = _digests(workdir) == pristine
+        code, summary, _, seconds = _pytest(workdir, None)
+        restored = {
+            "files_identical_to_pristine_copy": identical,
+            "passed": code == 0,
+            "summary": summary,
+            "seconds": round(seconds, 1),
+        }
+        print(
+            f"[restored] {'PASS' if code == 0 and identical else 'FAIL'}: {summary}",
+            file=sys.stderr,
+        )
     return {
         "baseline": baseline,
         "mutants": results,
+        "restored": restored,
         "killed": sum(r["killed"] for r in results),
         "total": len(results),
         "all_killed": all(r["killed"] for r in results),
@@ -281,7 +318,13 @@ def main(argv: list[str] | None = None) -> int:
     if args.report:
         args.report.write_text(json.dumps(result, indent=2), encoding="utf-8")
     print(json.dumps({k: result[k] for k in ("killed", "total", "all_killed") if k in result}))
-    return 0 if result["all_killed"] else 1
+    restored = result.get("restored", {})
+    ok = (
+        result["all_killed"]
+        and restored.get("passed")
+        and restored.get("files_identical_to_pristine_copy")
+    )
+    return 0 if ok else 1
 
 
 if __name__ == "__main__":
