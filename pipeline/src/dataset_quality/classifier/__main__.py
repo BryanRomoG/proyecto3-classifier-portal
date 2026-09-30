@@ -8,6 +8,7 @@ standard ``MLFLOW_TRACKING_URI`` (default ``sqlite:///mlflow.db`` in this direct
     python -m dataset_quality.classifier grid-check
     python -m dataset_quality.classifier run-grid
     python -m dataset_quality.classifier list-runs
+    python -m dataset_quality.classifier export-runs
     python -m dataset_quality.classifier select
     python -m dataset_quality.classifier evaluate --confirm-final-test
     python -m dataset_quality.classifier evaluate --audit
@@ -168,6 +169,26 @@ def cmd_list_runs(args: argparse.Namespace, experiment: str | None = None) -> in
     return 0
 
 
+def cmd_export_runs(args: argparse.Namespace) -> int:
+    from dataset_quality.classifier.data import class_names_from_manifest, load_manifest
+    from dataset_quality.classifier.export import export_runs
+
+    loaded = load_manifest(args.manifest)
+    snapshot = export_runs(
+        experiments=args.experiments or [args.experiment],
+        manifest_sha256=loaded.sha256,
+        classes=class_names_from_manifest(loaded.manifest),
+        report_dir=args.report_dir,
+    )
+    _print(
+        {
+            e["name"]: {"runs": e["runs"], "valid_runs": e["valid_runs"]}
+            for e in snapshot["experiments"]
+        }
+    )
+    return 0
+
+
 def cmd_select(args: argparse.Namespace) -> int:
     from dataset_quality.classifier.data import class_names_from_manifest, load_manifest
     from dataset_quality.classifier.selection import SelectionError, select_candidate
@@ -280,6 +301,11 @@ def build_parser() -> argparse.ArgumentParser:
     sub = commands.add_parser("list-runs")
     common(sub)
     sub.set_defaults(handler=cmd_list_runs)
+
+    sub = commands.add_parser("export-runs")
+    sub.add_argument("--experiments", nargs="*", help="default: --experiment")
+    common(sub)
+    sub.set_defaults(handler=cmd_export_runs)
 
     sub = commands.add_parser("select")
     sub.add_argument("--policy", type=Path, default=DEFAULT_POLICY)
