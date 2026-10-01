@@ -40,6 +40,27 @@ terraform apply -target=module.dvc_cache -target=module.dataset_releases
 
 Since `dev` runs real billable resources (RDS, an ECS cluster, S3), destroy it after grading if it's not needed to stay up (`terraform destroy` from `environments/dev`, run the same way as the applies above).
 
+## Project 3: separate OIDC role (`github-actions-classifier-portal`)
+
+`environments/dev` also defines a **second, independent** GitHub Actions OIDC role for Project 3's own repository (`BryanRomoG/proyecto3-classifier-portal`), separate from the `github-actions-dataset-quality-dev` role above. The existing role, the `github-oidc` provider, the storage buckets, and the workflows are all left untouched.
+
+- **Trust policy** (`aws_iam_policy_document.classifier_portal_assume_role`): accepts only tokens from `token.actions.githubusercontent.com` whose `sub` matches `repo:BryanRomoG@178322887/proyecto3-classifier-portal@1387653048:ref:refs/heads/main` — Project 3's immutable owner/repository IDs and `main` branch only — with audience `sts.amazonaws.com`. It reuses the provider already created by `module.github_oidc` via that module's `oidc_provider_arn` output instead of creating a second provider (an AWS account can only have one GitHub OIDC provider per URL).
+- **Permissions:** the role has `aws_iam_policy.release_publish` attached (the same least-privilege S3 policy the pipeline role uses) via `aws_iam_role_policy_attachment.classifier_portal_release_publish`.
+
+**Register the role ARN in GitHub** — after applying, read the ARN from the `classifier_portal_role_arn` output and add it to Project 3's repo as a **GitHub Actions repository variable** named `AWS_ROLE_ARN` (a variable, not a secret — it's an ARN):
+
+```bash
+# In AWS CloudShell, already authenticated:
+cd proyecto3-classifier-portal/infra/environments/dev
+terraform init
+terraform apply \
+  -target=aws_iam_role.classifier_portal \
+  -target=aws_iam_role_policy_attachment.classifier_portal_release_publish
+terraform output -raw classifier_portal_role_arn
+```
+
+Then, in the `BryanRomoG/proyecto3-classifier-portal` repo: Settings → Secrets and variables → Actions → Variables tab → New repository variable, name `AWS_ROLE_ARN`, value the ARN above. Project 3's workflows assume the role with `role-to-assume: ${{ vars.AWS_ROLE_ARN }}` — the same `AWS_ROLE_ARN` convention this repo's `terraform.yml`/`release.yml` already use.
+
 ## `infra/bootstrap/`
 
 A separate, tiny root — not an environment — that exists to solve one bootstrapping problem: Terraform can't store its own state in an S3 bucket that Terraform itself hasn't created yet. It creates just the state bucket (versioned — Terraform's own state-recovery mechanism) and a DynamoDB table for locking, and deliberately keeps **local** state itself, since this is the one piece of infrastructure that can't depend on the remote backend it's creating. `environments/dev` and `environments/prod` each have a `backend "s3" {}` block pointing at these resources (account ID hardcoded — backend blocks can't use variables or data sources, so this can't be `${data.aws_caller_identity...}` the way bucket names elsewhere are).
