@@ -130,3 +130,60 @@ resource "aws_iam_role_policy_attachment" "release_publish" {
   role       = "github-actions-dataset-quality-dev"
   policy_arn = aws_iam_policy.release_publish.arn
 }
+
+# --- Project 3: separate OIDC role for the classifier-portal repo ---
+#
+# Project 3 is its own repository (BryanRomoG/proyecto3-classifier-portal)
+# and needs its own GitHub Actions -> AWS trust. The existing role/provider
+# above are left exactly as they are. The `github-oidc` module bundles the
+# OIDC provider and its role into one unit, and an AWS account can only have
+# one GitHub OIDC provider per URL — so a second module call would try to
+# create a duplicate provider. The new role is therefore declared directly
+# here and reuses the provider already created by `module.github_oidc` via
+# its `oidc_provider_arn` output.
+#
+# The trust `sub` condition mirrors the exact format the module documents
+# (see modules/github-oidc/main.tf): GitHub appends immutable numeric IDs
+# after `@` (repo:OWNER@OWNER_ID/REPO@REPO_ID:ref:...). Both IDs are fixed
+# here to the values returned by GitHub, so renaming/recreating a repository
+# cannot inherit this trust. Scoped to Project 3's repo on `main` only.
+data "aws_iam_policy_document" "classifier_portal_assume_role" {
+  statement {
+    actions = ["sts:AssumeRoleWithWebIdentity"]
+
+    principals {
+      type        = "Federated"
+      identifiers = [module.github_oidc.oidc_provider_arn]
+    }
+
+    condition {
+      test     = "StringEquals"
+      variable = "token.actions.githubusercontent.com:aud"
+      values   = ["sts.amazonaws.com"]
+    }
+
+    condition {
+      test     = "StringLike"
+      variable = "token.actions.githubusercontent.com:sub"
+      values = [
+        "repo:BryanRomoG@178322887/proyecto3-classifier-portal@1387653048:ref:refs/heads/main"
+      ]
+    }
+  }
+}
+
+resource "aws_iam_role" "classifier_portal" {
+  name               = "github-actions-classifier-portal"
+  assume_role_policy = data.aws_iam_policy_document.classifier_portal_assume_role.json
+
+  tags = {
+    Environment = "dev"
+  }
+}
+
+# Same least-privilege S3 policy the pipeline role uses — attached to the new
+# role rather than widened into a new/broader policy.
+resource "aws_iam_role_policy_attachment" "classifier_portal_release_publish" {
+  role       = aws_iam_role.classifier_portal.name
+  policy_arn = aws_iam_policy.release_publish.arn
+}
