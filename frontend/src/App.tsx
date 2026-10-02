@@ -11,6 +11,13 @@ import { SettingsPage } from "@/pages/dataset/Settings";
 import { SplitsPage } from "@/pages/dataset/Splits";
 import { VersionsPage } from "@/pages/dataset/Versions";
 import { SearchPage } from "@/pages/SearchPage";
+import { ClassifierAppLayout } from "@/components/layout/ClassifierAppLayout";
+import { Training } from "@/pages/classifier/Training";
+import { Experiments } from "@/pages/classifier/Experiments";
+import { Evaluation } from "@/pages/classifier/Evaluation";
+import { Models } from "@/pages/classifier/Models";
+import { Inference } from "@/pages/classifier/Inference";
+
 
 export function App(): JSX.Element {
   return (
@@ -96,6 +103,16 @@ export function App(): JSX.Element {
       />
 
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
+
+
+    <Route element={<ClassifierAppLayout />}>
+      <Route path="/training" element={<Training />} />
+      <Route path="/experiments" element={<Experiments />} />
+      <Route path="/evaluation" element={<Evaluation />} />
+      <Route path="/models" element={<Models />} />
+      <Route path="/inference" element={<Inference />} />
+    </Route>
+\
     </Routes>
   );
 }
