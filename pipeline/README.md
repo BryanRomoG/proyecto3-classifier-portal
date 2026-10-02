@@ -182,7 +182,8 @@ The `mlflow` Compose service keeps its SQLite store and the proxied artifacts in
 `pipeline/mlflow-data/` (git-ignored), so the runs survive `docker compose down`. That folder
 is versioned with DVC as one output (`mlflow-data.dvc`); a clean clone restores it with
 `dvc pull -r prod mlflow-data.dvc` and checks it with `scripts/verify_mlflow_restore.py`
-(see `docs/t3-mlflow-dvc-handoff.md`, including the pending push to the `prod` remote).
+(see `docs/t3-mlflow-dvc-handoff.md`). The store is in the `prod` remote; the push and a
+clean-clone restore are recorded in `reports/classifier/mlflow_s3_persistence.md`.
 
 ### Training-config API (T3-1.4, rubric 2.2)
 

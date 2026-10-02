@@ -6,6 +6,12 @@ que no tiene credenciales de AWS; el `push` lo hace quien sí las tiene.
 
 ## Estado actual
 
+> **Push hecho y recuperación verificada el 2 de octubre de 2026:** 94 objetos en
+> `s3://dvc-cache-prod-685538571046`, y un clon limpio restauró los 205 archivos idénticos con
+> el verificador en `"passes": true`. Evidencia en
+> `pipeline/reports/classifier/mlflow_s3_persistence.md` y `mlflow_restore_check.json`. El resto
+> de este documento queda como procedimiento por si el store cambia y hay que volver a subirlo.
+
 | | |
 |---|---|
 | Qué se versiona | `pipeline/mlflow-data/` completo, como **una sola salida DVC**: `mlflow.db` (SQLite con experimentos, corridas, parámetros, métricas y etiquetas) + `artifacts/` (checkpoints `model.pt`, curvas, JSON y CSV de cada corrida) |
@@ -103,7 +109,7 @@ Contra un MLflow vacío falla los cuatro checks y sale con código 1.
 
 Este procedimiento completo ya se probó localmente, con una carpeta en lugar de S3: el
 worktree limpio recuperó los 205 archivos idénticos, MLflow los sirvió y el verificador pasó.
-Solo falta repetirlo con `-r prod`.
+Después se repitió con `-r prod` contra S3 (ver el aviso al inicio).
 
 ## Permisos mínimos en S3
 
