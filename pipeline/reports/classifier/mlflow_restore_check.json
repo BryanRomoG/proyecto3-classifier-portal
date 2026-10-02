@@ -1,0 +1,72 @@
+{
+  "checked_at": "2026-10-02T05:05:56.925553+00:00",
+  "tracking_uri": "http://127.0.0.1:5001",
+  "ranked_runs": [
+    {
+      "run_id": "44725ac6b1704fed8b06bc4f846651d8",
+      "run_name": "r03-adamw-lr1e-4",
+      "ok": true
+    },
+    {
+      "run_id": "725b5579a49a424f9bf0f9750b931229",
+      "run_name": "r01-base",
+      "ok": true
+    },
+    {
+      "run_id": "93f08311003645cf8716870ff5b49426",
+      "run_name": "r11-epochs4",
+      "ok": true
+    },
+    {
+      "run_id": "5fa5ab7e2f5241caa0001408974030d4",
+      "run_name": "r05-batch16",
+      "ok": true
+    },
+    {
+      "run_id": "67dd830fe2ed46ae9268cc4ac6a149ce",
+      "run_name": "r09-linear-head",
+      "ok": true
+    },
+    {
+      "run_id": "6876b9821812446cb91e8e4b2d2f7559",
+      "run_name": "r10-deep-head-dropout05",
+      "ok": true
+    },
+    {
+      "run_id": "a5055be4188f40be924957dbbc5cba45",
+      "run_name": "r08-img160-dropout0",
+      "ok": true
+    },
+    {
+      "run_id": "f7ca8284602449349afacd984c3c379e",
+      "run_name": "r04-batch64",
+      "ok": true
+    },
+    {
+      "run_id": "b401a753f21c43df97e436f10994b131",
+      "run_name": "r02-sgd",
+      "ok": true
+    },
+    {
+      "run_id": "06f137544d8f4f7e8e6c258f01b7790c",
+      "run_name": "r07-img96",
+      "ok": true
+    }
+  ],
+  "selected_run_id": "44725ac6b1704fed8b06bc4f846651d8",
+  "selected_checkpoint_sha256": "fe1c2370cb9d811d32cccc27edf0beeb3c440fe758c467a9e3fb91a73e6047cb",
+  "selected_checkpoint_bytes": 45304323,
+  "test_metrics": {
+    "test_total": 95.0,
+    "test_correct": 94.0,
+    "test_accuracy": 0.9894736842105263,
+    "test_macro_f1": 0.9892400045305243
+  },
+  "checks": {
+    "ten_ranked_runs_restored": true,
+    "selected_run_tags": true,
+    "selected_checkpoint_sha256": true,
+    "test_metrics_match_evaluation": true
+  },
+  "passes": true
+}
