@@ -26,6 +26,14 @@ import {
   updateQualityPolicy,
   uploadImage,
   ValidationError,
+  getExperiment,
+  listExperiments,
+  getEvaluation,
+  getSelection,
+  listModels,
+  selectModel,
+  getSelectedModel,
+  downloadSelectedModel,
 } from '../logic/index.js';
 
 /**
@@ -417,6 +425,156 @@ app.use(
     next(error);
   },
 );
+
+app.get("/experiments", async (_req, res) => {
+  try {
+    const experiments = await listExperiments();
+
+    res.status(200).json({
+      experiments,
+    });
+  } catch (error) {
+    sendError(
+      res,
+      error,
+      "No se pudieron obtener los experimentos.",
+    );
+  }
+});
+
+app.get("/experiments/:runId", async (req, res) => {
+  try {
+    const experiment = await getExperiment(
+      req.params.runId,
+    );
+
+    res.status(200).json(experiment);
+  } catch (error) {
+    sendError(
+      res,
+      error,
+      "No se pudo obtener el run.",
+    );
+  }
+});
+
+app.get("/evaluation", async (_req, res) => {
+  try {
+    const evaluation = await getEvaluation();
+
+    res.status(200).json(evaluation);
+  } catch (error) {
+    sendError(
+      res,
+      error,
+      "No se pudo obtener la evaluación.",
+    );
+  }
+});
+
+app.get("/evaluation/selection", async (_req, res) => {
+  try {
+    const selection = await getSelection();
+
+    res.status(200).json(selection);
+  } catch (error) {
+    sendError(
+      res,
+      error,
+      "No se pudo obtener la selección.",
+    );
+  }
+});
+
+app.get("/models", async (_req, res) => {
+  try {
+    const models = await listModels();
+
+    res.status(200).json({
+      models,
+    });
+  } catch (error) {
+    sendError(
+      res,
+      error,
+      "No se pudieron obtener los modelos.",
+    );
+  }
+});
+
+app.get("/models/selected", async (_req, res) => {
+  try {
+    const model = await getSelectedModel();
+
+    if (!model) {
+      res.status(404).json({
+        error: "No hay un modelo seleccionado.",
+      });
+      return;
+    }
+
+    res.status(200).json(model);
+  } catch (error) {
+    sendError(
+      res,
+      error,
+      "No se pudo obtener el modelo seleccionado.",
+    );
+  }
+});
+
+app.post("/models/:runId/select", async (req, res) => {
+  try {
+    const model = await selectModel(
+      req.params.runId,
+    );
+
+    res.status(200).json(model);
+  } catch (error) {
+    sendError(
+      res,
+      error,
+      "No se pudo seleccionar el modelo.",
+    );
+  }
+});
+
+app.get("/models/:runId/download", async (req, res) => {
+  try {
+    const response =
+      await downloadSelectedModel(
+        req.params.runId,
+      );
+
+    const contentType =
+      response.headers.get("content-type") ??
+      "application/octet-stream";
+
+    res.setHeader(
+      "Content-Type",
+      contentType,
+    );
+
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="model-${req.params.runId}.pt"`,
+    );
+
+    const buffer = Buffer.from(
+      await response.arrayBuffer(),
+    );
+
+    res.status(200).send(buffer);
+  } catch (error) {
+    sendError(
+      res,
+      error,
+      "No se pudo descargar el modelo.",
+    );
+  }
+});
+
+
 
 /**
  * Inicializa los servicios necesarios antes de levantar el servidor.
