@@ -449,6 +449,8 @@ def test_cli_writes_the_expected_manifest(
 
     output = tmp_path / "nested" / "classifier_split_manifest.json"
     assert output.is_file()
+    # The manifest is identified by its SHA-256: its bytes must not depend on the OS.
+    assert b"\r\n" not in output.read_bytes(), "manifest written with CRLF line endings"
 
     text = output.read_text(encoding="utf-8")
     manifest = ClassifierSplitManifest.model_validate_json(text)
