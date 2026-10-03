@@ -125,4 +125,13 @@ fi
 [[ -f "$BUNDLE_DIR/restore.sh" ]] || die "el bundle no trae restore.sh en $BUNDLE_DIR."
 
 echo
-exec bash "$BUNDLE_DIR/restore.sh" "$REPO_DIR"
+bash "$BUNDLE_DIR/restore.sh" "$REPO_DIR"
+
+# El bundle pertenece al release del Proyecto 2 y su mensaje final propone un
+# `dvc pull` global. El Proyecto 3 agregó salidas derivadas que no forman parte
+# de ese cache histórico; traer solo la entrada cruda y reproducir el DAG evita
+# que la ausencia legítima de esas salidas corte el flujo con `missing-files`.
+echo
+echo "Para este repositorio, continúa con:"
+echo
+echo '  docker compose --profile pipeline run --rm pipeline sh -c "PYTHONPATH=src dvc pull -r dev data/raw/coco-dataset.json.dvc && PYTHONPATH=src dvc repro"'

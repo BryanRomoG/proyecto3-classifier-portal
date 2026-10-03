@@ -396,14 +396,16 @@ dvc pull -r dev
 
 ```bash
 ./scripts/restore-env.sh          # solo la primera vez, en un clon limpio
-docker compose --profile pipeline run --rm pipeline sh -c "PYTHONPATH=src dvc pull -r dev && PYTHONPATH=src dvc repro"
+docker compose --profile pipeline run --rm pipeline sh -c "PYTHONPATH=src dvc pull -r dev data/raw/coco-dataset.json.dvc && PYTHONPATH=src dvc repro"
 ```
 
 El restore levanta el stack por su cuenta, así que ese es literalmente el
 primer comando de un clon limpio. Con el stack arriba, las 6 pantallas
 recogen los datos en la siguiente petición, sin reiniciar nada — verificado
-de punta a punta: tras el restore, `dvc pull -r dev` trae los 9 archivos del
-remote DEV, `dvc repro` reporta las 7 etapas sin cambios, y
+de punta a punta: tras el restore, el `dvc pull` dirigido trae el dataset fuente
+desde el remote DEV y `dvc repro` genera las salidas derivadas de las 8 etapas; no
+se usa un `dvc pull -r dev` global porque el cache del bundle no contiene todas las
+salidas nuevas del clasificador. Finalmente,
 `GET /quality-report` responde con `v1.0.0` / `pass` reales.
 
 Y ese restore es lo que hace reproducible todo lo demás: en un clon limpio el
@@ -411,7 +413,7 @@ bucket `dvc-cache` de MinIO lo crea `minio-init` **vacío** y el dataset crudo
 no vive en git (solo su puntero `.dvc`), así que `dvc pull -r dev` no tiene de
 dónde bajar nada todavía; el bundle del release `v1.0.0` es el que trae los
 bytes reales (ver [Dataset real](#dataset-real-necesario-para-el-pipeline)
-arriba). El `dvc repro` tarda la primera vez porque corre las 6 etapas de
+arriba). El `dvc repro` tarda la primera vez porque corre las 8 etapas de
 verdad.
 
 **Limitación conocida:** la verificación de `duplicates` (pHash) necesita descargar las imágenes reales desde el object store — el export COCO solo trae el nombre de archivo, no el `storage_key` de MinIO, así que la etapa `analyze` lo resuelve consultando la tabla `images` de MariaDB por `id` (los IDs de COCO son los mismos IDs de la BD). `duplicates` es un check `severity: fail` en `quality.yaml`, así que si esa BD/objeto no está disponible en el entorno donde corre `dvc repro` (por ejemplo, corriendo contra un dataset anotado en otra instancia), la etapa `analyze` **falla cerrado**: lanza `DuplicateBytesUnavailableError` y no se genera `quality.json` — nunca se reporta un `duplicates: 0` fabricado que dejaría pasar el gate sin haber medido nada de verdad.
