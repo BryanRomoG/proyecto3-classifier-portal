@@ -23,3 +23,16 @@ def get_object_store_client(settings: Settings | None = None):
         region_name=settings.object_store_region,
         use_ssl=settings.object_store_use_ssl,
     )
+
+
+def get_release_store_client(region_name: str | None = None):
+    """S3 client for publishing/reading model releases (T3-3.6).
+
+    Unlike ``get_object_store_client``, no credentials or endpoint are passed here: boto3
+    resolves them from its **standard credential chain** (``AWS_ACCESS_KEY_ID`` /
+    ``AWS_SECRET_ACCESS_KEY``, ``~/.aws/credentials``, SSO, or the instance/task role), so no
+    secret is ever hardcoded and the same code runs under GitHub Actions OIDC. The bucket and
+    region live in the caller (``classifier.release``), not here.
+    """
+
+    return boto3.client("s3", region_name=region_name)

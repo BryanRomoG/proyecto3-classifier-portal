@@ -1,46 +1,43 @@
-import {
-  createTrainingRun,
-  getLatestTrainingRun,
-  getTrainingRun,
-  trainingConfigSchema,
-} from '../logic/index.js';
-
 import express from 'express';
 import multer from 'multer';
 import { env } from '../config/env.js';
 import {
   checkHealth,
   createAnnotationForImage,
+  createTrainingRun,
   deleteAnnotation,
   deleteImage,
+  downloadSelectedModel,
   exportCocoDataset,
   getAnnotationsForImage,
   getCategories,
   getDashboardSummary,
+  getEvaluation,
+  getExperiment,
   getImageFile,
+  getLatestTrainingRun,
   getQualityPolicy,
   getQualityReport,
+  getSelectedModel,
+  getSelection,
   getSplitReport,
+  getTrainingRun,
   getVersionHistory,
   idParamSchema,
   imageSearchSchema,
   initializeApplication,
+  listExperiments,
+  listModels,
   NotFoundError,
   qualityPolicyUpdateSchema,
   searchImages,
+  selectModel,
   setImageStatus,
+  trainingConfigSchema,
   updateAnnotation,
   updateQualityPolicy,
   uploadImage,
   ValidationError,
-  getExperiment,
-  listExperiments,
-  getEvaluation,
-  getSelection,
-  listModels,
-  selectModel,
-  getSelectedModel,
-  downloadSelectedModel,
 } from '../logic/index.js';
 
 /**
@@ -418,9 +415,7 @@ app.post('/training/jobs', async (req, res) => {
 
   if (!parsed.success) {
     res.status(400).json({
-      error:
-        parsed.error.issues[0]?.message ??
-        'Configuración de entrenamiento inválida.',
+      error: parsed.error.issues[0]?.message ?? 'Configuración de entrenamiento inválida.',
     });
     return;
   }
@@ -573,10 +568,7 @@ app.get('/models/:runId/download', async (req, res) => {
     const contentType = response.headers.get('content-type') ?? 'application/octet-stream';
 
     res.setHeader('Content-Type', contentType);
-    res.setHeader(
-      'Content-Disposition',
-      `attachment; filename="model-${req.params.runId}.pt"`,
-    );
+    res.setHeader('Content-Disposition', `attachment; filename="model-${req.params.runId}.pt"`);
 
     const buffer = Buffer.from(await response.arrayBuffer());
     res.status(200).send(buffer);

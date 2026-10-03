@@ -42,6 +42,14 @@ export { buildDashboardSummary, buildThumbnailUrl } from './dashboard.builder.js
 export { getDashboardSummary } from './dashboard.service.js';
 // Errores tipados: la capa UI los mapea a códigos HTTP (SPEC-VALID-001).
 export { NotFoundError, ValidationError } from './errors.js';
+export {
+  getEvaluation,
+  getSelection,
+} from './evaluation.service.js';
+export {
+  getExperiment,
+  listExperiments,
+} from './experiments.service.js';
 export type { HealthStatus } from './health.service.js';
 export { checkHealth } from './health.service.js';
 export type { ImageFile } from './image-file.service.js';
@@ -55,6 +63,12 @@ export type {
 export { searchImages } from './image-search.service.js';
 export { setImageStatus } from './image-status.service.js';
 export { deleteImage, uploadImage } from './image-upload.service.js';
+export {
+  downloadSelectedModel,
+  getSelectedModel,
+  listModels,
+  selectModel,
+} from './models.service.js';
 // Contratos de Data Quality: solo lectura (SPEC-PIPE-001)
 export {
   getQualityReport,
@@ -77,20 +91,10 @@ export { qualityPolicyUpdateSchema } from './quality-policy.validation.js';
 export type { ParsedSearchQuery, SearchOperator } from './search-query.parser.js';
 export { parseSearchQuery } from './search-query.parser.js';
 export { initializeApplication } from './startup.service.js';
-
+export type { TrainingConfig } from './training.service.js';
 export {
-  getExperiment,
-  listExperiments,
-} from "./experiments.service.js";
-
-export {
-  getEvaluation,
-  getSelection,
-} from "./evaluation.service.js";
-
-export {
-  downloadSelectedModel,
-  getSelectedModel,
-  listModels,
-  selectModel,
-} from "./models.service.js";
+  createTrainingRun,
+  getLatestTrainingRun,
+  getTrainingRun,
+  trainingConfigSchema,
+} from './training.service.js';

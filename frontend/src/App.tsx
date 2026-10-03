@@ -1,8 +1,14 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 import { AnnotateScreen } from "@/components/annotate/AnnotateScreen";
 import { AppLayout } from "@/components/layout/AppLayout";
+import { ClassifierAppLayout } from "@/components/layout/ClassifierAppLayout";
 import { DatasetAppLayout } from "@/components/layout/DatasetAppLayout";
 import { UploadScreen } from "@/components/upload/UploadScreen";
+import { EvaluationPage } from "@/pages/classifier/Evaluation";
+import { ExperimentsPage } from "@/pages/classifier/Experiments";
+import { Inference } from "@/pages/classifier/Inference";
+import { ModelsPage } from "@/pages/classifier/Models";
+import { TrainingPage } from "@/pages/classifier/Training";
 import { DashboardPage } from "@/pages/Dashboard";
 import { AnalyzersPage } from "@/pages/dataset/Analyzers";
 import { CopilotPage } from "@/pages/dataset/Copilot";
@@ -11,9 +17,6 @@ import { SettingsPage } from "@/pages/dataset/Settings";
 import { SplitsPage } from "@/pages/dataset/Splits";
 import { VersionsPage } from "@/pages/dataset/Versions";
 import { SearchPage } from "@/pages/SearchPage";
-import { ExperimentsPage } from "@/pages/classifier/Experiments";
-import { EvaluationPage } from "@/pages/classifier/Evaluation";
-import { ModelsPage } from "@/pages/classifier/Models";
 
 export function App(): JSX.Element {
   return (
@@ -98,34 +101,15 @@ export function App(): JSX.Element {
         }
       />
 
+      <Route element={<ClassifierAppLayout />}>
+        <Route path="/training" element={<TrainingPage />} />
+        <Route path="/experiments" element={<ExperimentsPage />} />
+        <Route path="/evaluation" element={<EvaluationPage />} />
+        <Route path="/models" element={<ModelsPage />} />
+        <Route path="/inference" element={<Inference />} />
+      </Route>
+
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>
   );
 }
-
-<Route
-  path="/experiments"
-  element={
-    <AppLayout>
-      <ExperimentsPage />
-    </AppLayout>
-  }
-/>
-
-<Route
-  path="/evaluation"
-  element={
-    <AppLayout>
-      <EvaluationPage />
-    </AppLayout>
-  }
-/>
-
-<Route
-  path="/models"
-  element={
-    <AppLayout>
-      <ModelsPage />
-    </AppLayout>
-  }
-/>

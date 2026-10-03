@@ -1,9 +1,4 @@
-
-import {
-  getArtifactUrl,
-  getClassifierRun,
-  getClassifierRuns,
-} from "../data/mlflow.client.js";
+import { getArtifactUrl, getClassifierRun, getClassifierRuns } from '../data/mlflow.client.js';
 
 export interface ExperimentRow {
   runId: string;
@@ -24,17 +19,11 @@ export interface ExperimentRow {
   curvesUrl: string | null;
 }
 
-function value(
-  params: Record<string, string>,
-  key: string,
-): string | null {
+function value(params: Record<string, string>, key: string): string | null {
   return params[key] ?? null;
 }
 
-function metric(
-  metrics: Record<string, number>,
-  key: string,
-): number | null {
+function metric(metrics: Record<string, number>, key: string): number | null {
   return metrics[key] ?? null;
 }
 
@@ -57,38 +46,25 @@ function toRow(run: {
     runName: run.info.run_name ?? run.info.run_id,
     status: run.info.status,
 
-    optimizer: value(run.data.params, "optimizer") ?? "-",
-    batchSize: value(run.data.params, "batch_size"),
-    epochs: value(run.data.params, "max_epochs"),
-    learningRate: value(run.data.params, "learning_rate"),
-    imageSize: value(run.data.params, "image_size"),
-    dropout: value(run.data.params, "dropout"),
+    optimizer: value(run.data.params, 'optimizer') ?? '-',
+    batchSize: value(run.data.params, 'batch_size'),
+    epochs: value(run.data.params, 'max_epochs'),
+    learningRate: value(run.data.params, 'learning_rate'),
+    imageSize: value(run.data.params, 'image_size'),
+    dropout: value(run.data.params, 'dropout'),
 
-    bestValAccuracy: metric(
-      run.data.metrics,
-      "best_val_accuracy",
-    ),
+    bestValAccuracy: metric(run.data.metrics, 'best_val_accuracy'),
 
-    bestValLoss: metric(
-      run.data.metrics,
-      "best_val_loss",
-    ),
+    bestValLoss: metric(run.data.metrics, 'best_val_loss'),
 
-    bestEpoch: metric(
-      run.data.metrics,
-      "best_epoch",
-    ),
+    bestEpoch: metric(run.data.metrics, 'best_epoch'),
 
-    datasetVersion:
-      run.data.tags.dataset_version ?? null,
+    datasetVersion: run.data.tags.dataset_version ?? null,
 
     startTime: run.info.start_time,
     endTime: run.info.end_time ?? null,
 
-    curvesUrl: getArtifactUrl(
-      run.info.run_id,
-      "curves.png",
-    ),
+    curvesUrl: getArtifactUrl(run.info.run_id, 'curves.png'),
   };
 }
 
@@ -98,11 +74,8 @@ export async function listExperiments(): Promise<ExperimentRow[]> {
   return runs.map(toRow);
 }
 
-export async function getExperiment(
-  runId: string,
-): Promise<ExperimentRow> {
+export async function getExperiment(runId: string): Promise<ExperimentRow> {
   const run = await getClassifierRun(runId);
 
   return toRow(run);
 }
-```

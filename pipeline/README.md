@@ -168,6 +168,7 @@ validation.
 | Selection | `selection.py`, `experiments/selection_policy.yaml` | pre-declared validation metric; refuses after the test was opened |
 | Final test | `evaluation.py`, `metrics.py` | one-time evaluation (explicit `--confirm-final-test`), per-sample predictions CSV, matrix (rows = true), accuracy, macro F1, per-class P/R/F1, majority baseline, most confused pair; `--audit` recomputes without overwriting |
 | Inference | `predict.py` | reloads a checkpoint in a clean process with its class map and preprocessing |
+| Model release | `release.py`, `config/clients.py`, `storage/object_store.py` | packages the selected candidate (semantic version + card + config + class map + traceability metadata + SHA-256 manifest), builds deterministically, refuses a checkpoint that is not the selected/test-evaluated one, and publishes/verifies it in the releases S3 bucket with boto3's standard credential chain — see `docs/t3-3-6-model-release.md` |
 
 Setup (on top of the normal pipeline install):
 

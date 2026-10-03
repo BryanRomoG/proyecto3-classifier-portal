@@ -1,9 +1,5 @@
-
 import { z } from "zod";
-import {
-  apiRequest,
-  jsonBody,
-} from "./client";
+import { apiRequest, jsonBody } from "./client";
 
 const modelSchema = z.object({
   runId: z.string(),
@@ -33,34 +29,19 @@ const selectedModelSchema = z.object({
   checkpointSha256: z.string().nullable(),
 });
 
-export type Model = z.infer<
-  typeof modelSchema
->;
+export type Model = z.infer<typeof modelSchema>;
 
 export async function getModels() {
-  return apiRequest(
-    "/models",
-    modelsResponseSchema,
-  );
+  return apiRequest("/models", modelsResponseSchema);
 }
 
-export async function selectModel(
-  runId: string,
-) {
-  return apiRequest(
-    `/models/${runId}/select`,
-    selectedModelSchema,
-    {
-      method: "POST",
-      ...jsonBody({}),
-    },
-  );
+export async function selectModel(runId: string) {
+  return apiRequest(`/models/${runId}/select`, selectedModelSchema, {
+    method: "POST",
+    ...jsonBody({}),
+  });
 }
 
 export async function getSelectedModel() {
-  return apiRequest(
-    "/models/selected",
-    selectedModelSchema,
-  );
+  return apiRequest("/models/selected", selectedModelSchema);
 }
-

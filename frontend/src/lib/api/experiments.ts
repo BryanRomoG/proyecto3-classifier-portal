@@ -1,4 +1,3 @@
-
 import { z } from "zod";
 import { apiRequest } from "./client";
 
@@ -25,23 +24,12 @@ const experimentsResponseSchema = z.object({
   experiments: z.array(experimentSchema),
 });
 
-export type Experiment = z.infer<
-  typeof experimentSchema
->;
+export type Experiment = z.infer<typeof experimentSchema>;
 
 export async function getExperiments() {
-  return apiRequest(
-    "/experiments",
-    experimentsResponseSchema,
-  );
+  return apiRequest("/experiments", experimentsResponseSchema);
 }
 
-export async function getExperiment(
-  runId: string,
-) {
-  return apiRequest(
-    `/experiments/${runId}`,
-    experimentSchema,
-  );
+export async function getExperiment(runId: string) {
+  return apiRequest(`/experiments/${runId}`, experimentSchema);
 }
-

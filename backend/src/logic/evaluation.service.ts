@@ -1,11 +1,7 @@
+import fs from 'node:fs/promises';
+import path from 'node:path';
 
-import fs from "node:fs/promises";
-import path from "node:path";
-
-const REPORTS_DIR = path.resolve(
-  process.cwd(),
-  "../pipeline/reports/classifier",
-);
+const REPORTS_DIR = path.resolve(process.cwd(), '../pipeline/reports/classifier');
 
 interface SelectionReport {
   run_id: string;
@@ -68,18 +64,13 @@ interface TestEvaluation {
 }
 
 async function readJson<T>(filename: string): Promise<T> {
-  const content = await fs.readFile(
-    path.join(REPORTS_DIR, filename),
-    "utf8",
-  );
+  const content = await fs.readFile(path.join(REPORTS_DIR, filename), 'utf8');
 
   return JSON.parse(content) as T;
 }
 
 export async function getSelection() {
-  return readJson<SelectionReport>(
-    "selection.json",
-  );
+  return readJson<SelectionReport>('selection.json');
 }
 
 export async function getEvaluation() {
@@ -93,8 +84,7 @@ export async function getEvaluation() {
   if (!selection.test_opened) {
     return {
       locked: true,
-      message:
-        "La evaluación final permanece bloqueada hasta cerrar la selección del modelo.",
+      message: 'La evaluación final permanece bloqueada hasta cerrar la selección del modelo.',
       selection: {
         runId: selection.run_id,
         runName: selection.run_name,
@@ -103,10 +93,7 @@ export async function getEvaluation() {
     };
   }
 
-  const evaluation =
-    await readJson<TestEvaluation>(
-      "test_evaluation.json",
-    );
+  const evaluation = await readJson<TestEvaluation>('test_evaluation.json');
 
   return {
     locked: false,
@@ -118,4 +105,3 @@ export async function getEvaluation() {
     evaluation,
   };
 }
-
