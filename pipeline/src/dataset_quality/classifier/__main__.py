@@ -387,6 +387,8 @@ def cmd_release_build(args: argparse.Namespace) -> int:
             selection_path=args.selection,
             evaluation_path=args.evaluation,
             output_dir=args.output_dir,
+            manifest_path=args.manifest if args.manifest.is_file() else None,
+            requirements_path=args.requirements if args.requirements.is_file() else None,
         )
     except ReleaseError as error:
         print(f"[release-build] {error}", file=sys.stderr)
@@ -418,6 +420,31 @@ def cmd_release_upload(args: argparse.Namespace) -> int:
         print(f"[release-upload] {error}", file=sys.stderr)
         return EXIT_INVALID
     _print(result)
+    return 0
+
+
+def cmd_release_record(args: argparse.Namespace) -> int:
+    from datetime import UTC, datetime
+
+    from dataset_quality.classifier.release import ReleaseError, record_release, release_store
+
+    store = release_store(args.bucket, args.region)
+    try:
+        record = record_release(
+            store=store,
+            version=args.version,
+            prefix=args.prefix,
+            recorded_at=datetime.now(UTC).isoformat(),
+        )
+    except ReleaseError as error:
+        print(f"[release-record] {error}", file=sys.stderr)
+        return EXIT_INVALID
+    args.output_dir.mkdir(parents=True, exist_ok=True)
+    target = args.output_dir / f"{args.version}.json"
+    target.write_text(
+        json.dumps(record, indent=2, sort_keys=True) + "\n", encoding="utf-8", newline="\n"
+    )
+    _print({k: v for k, v in record.items() if k != "card_markdown"})
     return 0
 
 
@@ -549,6 +576,15 @@ def build_parser() -> argparse.ArgumentParser:
     sub.add_argument("--selection", type=Path, default=DEFAULT_REPORT_DIR / "selection.json")
     sub.add_argument("--evaluation", type=Path, default=DEFAULT_REPORT_DIR / "test_evaluation.json")
     sub.add_argument("--output-dir", type=Path, default=DEFAULT_RELEASE_DIR)
+    sub.add_argument(
+        "--manifest", type=Path, default=DEFAULT_MANIFEST, help="70/20/10 manifest (split table)"
+    )
+    sub.add_argument(
+        "--requirements",
+        type=Path,
+        default=Path("requirements-train.txt"),
+        help="pinned ML extras declared as the package dependencies",
+    )
     sub.set_defaults(handler=cmd_release_build)
 
     sub = commands.add_parser("release-verify")
@@ -564,6 +600,14 @@ def build_parser() -> argparse.ArgumentParser:
     sub.add_argument("--prefix", default=DEFAULT_RELEASE_PREFIX)
     sub.add_argument("--region", default=None)
     sub.set_defaults(handler=cmd_release_upload)
+
+    sub = commands.add_parser("release-record")
+    sub.add_argument("--version", required=True)
+    sub.add_argument("--bucket", required=True)
+    sub.add_argument("--prefix", default=DEFAULT_RELEASE_PREFIX)
+    sub.add_argument("--region", default=None)
+    sub.add_argument("--output-dir", type=Path, default=DEFAULT_REPORT_DIR / "releases")
+    sub.set_defaults(handler=cmd_release_record)
 
     sub = commands.add_parser("release-fetch")
     sub.add_argument("--version", required=True)
@@ -594,6 +638,7 @@ def main(argv: list[str] | None = None) -> int:
         "release-build",
         "release-verify",
         "release-upload",
+        "release-record",
         "release-fetch",
     }
     if args.command not in no_mlflow_commands:

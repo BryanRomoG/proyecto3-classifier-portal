@@ -101,7 +101,7 @@ def sha256_file(path: Path) -> str:
 
 
 def _write_json(path: Path, payload: object) -> None:
-    path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+    path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8", newline="\n")
 
 
 @dataclass(frozen=True)
@@ -145,6 +145,42 @@ def read_checkpoint(path: Path) -> CheckpointFacts:
     )
 
 
+def split_summary(manifest_path: Path) -> dict:
+    """Crops and source images per split (and crops per class) of the 70/20/10 manifest."""
+
+    manifest = json.loads(Path(manifest_path).read_text(encoding="utf-8"))
+    crops: dict[str, int] = {}
+    images: dict[str, int] = {}
+    by_class: dict[str, dict[str, int]] = {}
+    for section in manifest.get("splits", []):
+        name = section["name"]
+        crops[name] = len(section.get("crops", []))
+        images[name] = len(section.get("image_ids", []))
+        counts: dict[str, int] = {}
+        for crop in section.get("crops", []):
+            counts[crop["category_name"]] = counts.get(crop["category_name"], 0) + 1
+        by_class[name] = dict(sorted(counts.items()))
+    return {
+        "dataset_version": manifest.get("dataset_version"),
+        "proportions": manifest.get("proportions"),
+        "crops": crops,
+        "source_images": images,
+        "by_class": by_class,
+    }
+
+
+def declared_dependencies(requirements_path: Path) -> dict[str, str]:
+    """``name==version`` pins of the ML extras the checkpoint needs (requirements-train.txt)."""
+
+    pins: dict[str, str] = {}
+    for line in Path(requirements_path).read_text(encoding="utf-8").splitlines():
+        line = line.split("#", 1)[0].strip()
+        if "==" in line:
+            name, version = line.split("==", 1)
+            pins[name.strip()] = version.split(";", 1)[0].strip()
+    return pins
+
+
 def _fmt(value: object, digits: int = 4) -> str:
     """Deterministic, human-readable rendering of a metric value."""
 
@@ -165,6 +201,8 @@ def _model_card(
     facts: CheckpointFacts,
     checkpoint_sha256: str,
     class_names: list[str],
+    split: dict | None = None,
+    dependencies: dict[str, str] | None = None,
 ) -> str:
     """Render ``MODEL_CARD.md`` purely from the reports and the checkpoint."""
 
@@ -262,6 +300,46 @@ def _model_card(
         json.dumps(facts.preprocessing, indent=2, sort_keys=True),
         "```",
         "",
+    ]
+    if split:
+        proportions = split.get("proportions") or {}
+        ratio = "/".join(
+            str(round(100 * float(proportions.get(name, 0)))) for name in ("train", "val", "test")
+        )
+        class_names_in_split = sorted(
+            {name for counts in split["by_class"].values() for name in counts}
+        )
+        lines += [
+            "## Datos y split",
+            "",
+            f"Manifiesto derivado {ratio} del release `{split.get('dataset_version')}`, agrupado",
+            "por imagen original y por duplicados cercanos (ningún original en dos particiones).",
+            "",
+            "| Partición | Recortes | Imágenes originales | "
+            + " | ".join(class_names_in_split)
+            + " |",
+            "| --- | ---: | ---: | " + " | ".join("---:" for _ in class_names_in_split) + " |",
+        ]
+        for name in ("train", "val", "test"):
+            counts = split["by_class"].get(name, {})
+            crops = split["crops"].get(name, 0)
+            originals = split["source_images"].get(name, 0)
+            lines.append(
+                f"| {name} | {crops} | {originals} | "
+                + " | ".join(str(counts.get(label, 0)) for label in class_names_in_split)
+                + " |"
+            )
+        lines.append("")
+    if dependencies:
+        lines += [
+            "## Dependencias",
+            "",
+            "Para cargar el checkpoint e inferir (versiones fijadas en `requirements-train.txt`):",
+            "",
+            *[f"- `{name}=={version}`" for name, version in sorted(dependencies.items())],
+            "",
+        ]
+    lines += [
         "## Uso (inferencia limpia)",
         "",
         "```bash",
@@ -325,6 +403,8 @@ def build_package(
     evaluation_path: Path,
     output_dir: Path,
     checkpoint_reader: Callable[[Path], CheckpointFacts] = read_checkpoint,
+    manifest_path: Path | None = None,
+    requirements_path: Path | None = None,
 ) -> dict:
     """Assemble the versioned package under ``output_dir/<version>`` and return its summary.
 
@@ -348,6 +428,9 @@ def build_package(
     facts = checkpoint_reader(checkpoint)
     _cross_check(checkpoint_sha256, selection, evaluation, facts)
 
+    split = split_summary(manifest_path) if manifest_path else None
+    dependencies = declared_dependencies(requirements_path) if requirements_path else None
+
     config = TrainingConfig.model_validate(facts.config).model_dump(mode="json")
     class_names = list(facts.class_names)
     class_map = {str(index): name for index, name in enumerate(class_names)}
@@ -368,8 +451,11 @@ def build_package(
             facts=facts,
             checkpoint_sha256=checkpoint_sha256,
             class_names=class_names,
+            split=split,
+            dependencies=dependencies,
         ),
         encoding="utf-8",
+        newline="\n",
     )
 
     files = {
@@ -422,10 +508,16 @@ def build_package(
         },
         "files": files,
     }
+    if split:
+        metadata["split"] = split
+    if dependencies:
+        metadata["dependencies"] = dependencies
     _write_json(package_dir / METADATA_FILE, metadata)
 
     checksums = {name: sha256_file(package_dir / name) for name in PACKAGE_FILES}
-    (package_dir / CHECKSUMS_FILE).write_text(_checksums_text(checksums), encoding="utf-8")
+    (package_dir / CHECKSUMS_FILE).write_text(
+        _checksums_text(checksums), encoding="utf-8", newline="\n"
+    )
 
     return {
         "format": RELEASE_FORMAT,
@@ -640,3 +732,74 @@ def fetch_package(
     verification["prefix"] = prefix
     verification["destination"] = str(destination)
     return verification
+
+
+def record_release(
+    *,
+    store: Any,
+    version: str,
+    recorded_at: str,
+    prefix: str = DEFAULT_PREFIX,
+) -> dict:
+    """Describe a version that is really in the releases bucket, read back from it.
+
+    Every package file must answer a ``HeadObject`` (size, ETag and, with bucket versioning,
+    its ``VersionId``); otherwise the version is refused as not published. ``SHA256SUMS``,
+    ``metadata.json`` and the card are downloaded so the record carries the per-file SHA-256,
+    the run it came from and the card text. This record is what the portal's Models page
+    shows: it can never list as published a version whose objects are not there.
+    """
+
+    import tempfile
+
+    parse_semver(version)
+    heads: dict[str, dict] = {}
+    missing: list[str] = []
+    for name in (*PACKAGE_FILES, CHECKSUMS_FILE):
+        try:
+            heads[name] = store.head(package_key(prefix, version, name))
+        except Exception:
+            missing.append(name)
+    if missing:
+        raise ReleaseError(f"version {version} is not published: missing {missing}")
+
+    with tempfile.TemporaryDirectory() as tmp:
+        local = Path(tmp)
+        for name in (CHECKSUMS_FILE, METADATA_FILE, MODEL_CARD_FILE):
+            store.download_file(package_key(prefix, version, name), local / name)
+        checksums = _parse_checksums((local / CHECKSUMS_FILE).read_text(encoding="utf-8"))
+        checksums[CHECKSUMS_FILE] = sha256_file(local / CHECKSUMS_FILE)
+        metadata = json.loads((local / METADATA_FILE).read_text(encoding="utf-8"))
+        card = (local / MODEL_CARD_FILE).read_text(encoding="utf-8")
+
+    objects = {
+        name: {
+            "key": package_key(prefix, version, name),
+            "size": int(head["ContentLength"]),
+            "etag": str(head.get("ETag", "")).strip('"'),
+            "version_id": head.get("VersionId"),
+            "sha256": checksums.get(name),
+        }
+        for name, head in heads.items()
+    }
+    return {
+        "format": "t3-classifier-release-record/v1",
+        "version": version,
+        "bucket": getattr(store, "bucket", None),
+        "prefix": prefix,
+        "s3_uri": f"s3://{getattr(store, 'bucket', '')}/{prefix.strip('/')}/{version}/",
+        "run_id": metadata.get("run_id"),
+        "run_name": metadata.get("run_name"),
+        "checkpoint_sha256": metadata.get("checkpoint_sha256"),
+        "dataset": metadata.get("dataset"),
+        "test_metrics": {
+            key: (metadata.get("test_metrics") or {}).get(key)
+            for key in ("total", "correct", "accuracy", "macro_f1")
+        },
+        "dependencies": metadata.get("dependencies"),
+        "split": metadata.get("split"),
+        "objects": objects,
+        "card_markdown": card,
+        "recorded_at": recorded_at,
+        "verified_with": "HeadObject",
+    }
