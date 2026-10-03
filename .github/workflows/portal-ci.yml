@@ -1,0 +1,86 @@
+name: Portal CI
+
+# Backend (Express) and frontend (React) of the portal: Biome, typecheck, tests and build,
+# with no continue-on-error, so a broken page or route fails the build (rubric 7.3).
+on:
+  push:
+    paths:
+      - "backend/**"
+      - "frontend/**"
+      - ".github/workflows/portal-ci.yml"
+  pull_request:
+    paths:
+      - "backend/**"
+      - "frontend/**"
+      - ".github/workflows/portal-ci.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    # The backend validates its configuration at import time; these are the
+    # docker-compose development values, no secrets (tests never reach a database).
+    env:
+      DATABASE_URL: mysql://root:password@localhost:3306/image_repo
+      MINIO_ENDPOINT: localhost
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin
+      MINIO_BUCKET: image-annotations
+      MAX_UPLOAD_SIZE_BYTES: "5242880"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: npm ci
+        run: npm ci
+
+      - name: biome check
+        run: npx biome check .
+
+      - name: typecheck
+        run: npm run typecheck
+
+      - name: test
+        run: npm test
+
+      - name: build
+        run: npm run build
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: npm ci
+        run: npm ci
+
+      - name: biome check
+        run: npx biome check .
+
+      - name: typecheck
+        run: npm run typecheck
+
+      - name: test
+        run: npm test
+
+      - name: build
+        run: npm run build
