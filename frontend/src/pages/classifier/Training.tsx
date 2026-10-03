@@ -1,25 +1,65 @@
 import { type ReactNode, useEffect, useState } from "react";
+import { ApiError, type ApiFieldError } from "@/api/client";
 import {
   createTrainingJob,
   getLatestTrainingJob,
   getTrainingJob,
+  getTrainingProvenance,
   type TrainingJob,
+  type TrainingProvenance,
 } from "@/api/training";
 
+// Valores por defecto del entrenador (pipeline/src/dataset_quality/classifier/config.py).
+// Las reglas (rangos, optimizadores, ancho de capas) las aplica el servicio trainer.
 const DEFAULT_CONFIG = {
-  optimizer: "Adam",
+  optimizer: "adam",
   batchSize: 32,
   epochs: 15,
   learningRate: 0.001,
   imageSize: 128,
-  dropout: 0.2,
+  hiddenLayers: "256",
+  dropout: 0.3,
 };
+
+/** "512, 128" -> [512, 128]; vacío -> [] (cabeza lineal). */
+function parseHiddenLayers(text: string): number[] {
+  return text
+    .split(",")
+    .map((part) => part.trim())
+    .filter((part) => part !== "")
+    .map(Number);
+}
 
 export function TrainingPage() {
   const [config, setConfig] = useState(DEFAULT_CONFIG);
   const [job, setJob] = useState<TrainingJob | null>(null);
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<ApiFieldError[]>([]);
+  const [provenance, setProvenance] = useState<TrainingProvenance | null>(null);
+  const [provenanceError, setProvenanceError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    getTrainingProvenance()
+      .then((info) => {
+        if (!cancelled) setProvenance(info);
+      })
+      .catch((requestError: unknown) => {
+        if (!cancelled) {
+          setProvenanceError(
+            requestError instanceof Error
+              ? requestError.message
+              : "No se pudo obtener la procedencia."
+          );
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -75,9 +115,13 @@ export function TrainingPage() {
   async function handleStartTraining() {
     setStarting(true);
     setError(null);
+    setFieldErrors([]);
 
     try {
-      const response = await createTrainingJob(config);
+      const response = await createTrainingJob({
+        ...config,
+        hiddenLayers: parseHiddenLayers(config.hiddenLayers),
+      });
 
       const createdJob = await getTrainingJob(response.id);
 
@@ -89,12 +133,21 @@ export function TrainingPage() {
           : "No se pudo iniciar el entrenamiento.";
 
       setError(message);
+      if (requestError instanceof ApiError) {
+        setFieldErrors(requestError.fieldErrors);
+      }
     } finally {
       setStarting(false);
     }
   }
 
   const isRunning = job?.status === "queued" || job?.status === "running";
+  const gateOpen = provenance?.quality_gate_status === "pass" && provenance.test_isolated;
+  const errorFor = (field: string) =>
+    fieldErrors
+      .filter((item) => item.field === field || item.field.startsWith(`${field}.`))
+      .map((item) => item.message)
+      .join(" · ") || undefined;
 
   return (
     <PageShell
@@ -107,13 +160,14 @@ export function TrainingPage() {
             <h2 className="text-base font-semibold text-ink">Training configuration</h2>
 
             <p className="mt-1 text-sm text-ink-muted">
-              El entrenamiento se ejecuta como un trabajo asíncrono y su estado se guarda en la base
-              de datos.
+              El servicio trainer valida con las reglas del entrenador, revisa la compuerta de
+              calidad y ejecuta el entrenamiento real fuera de la petición; el estado se guarda en
+              la base de datos.
             </p>
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Optimizer">
+            <Field label="Optimizer" error={errorFor("optimizer")}>
               <select
                 value={config.optimizer}
                 disabled={isRunning}
@@ -125,13 +179,13 @@ export function TrainingPage() {
                 }
                 className="rounded-lg border border-border bg-surface px-3 py-2 text-sm text-ink"
               >
-                <option>Adam</option>
-                <option>SGD</option>
-                <option>AdamW</option>
+                <option value="adam">Adam</option>
+                <option value="sgd">SGD</option>
+                <option value="adamw">AdamW</option>
               </select>
             </Field>
 
-            <Field label="Batch size">
+            <Field label="Batch size" error={errorFor("batchSize")}>
               <input
                 className="rounded-lg border border-border bg-surface px-3 py-2 text-sm text-ink"
                 type="number"
@@ -147,7 +201,7 @@ export function TrainingPage() {
               />
             </Field>
 
-            <Field label="Max epochs">
+            <Field label="Max epochs" error={errorFor("epochs")}>
               <input
                 className="rounded-lg border border-border bg-surface px-3 py-2 text-sm text-ink"
                 type="number"
@@ -163,7 +217,7 @@ export function TrainingPage() {
               />
             </Field>
 
-            <Field label="Learning rate">
+            <Field label="Learning rate" error={errorFor("learningRate")}>
               <input
                 className="rounded-lg border border-border bg-surface px-3 py-2 text-sm text-ink"
                 type="number"
@@ -180,7 +234,7 @@ export function TrainingPage() {
               />
             </Field>
 
-            <Field label="Image size">
+            <Field label="Image size" error={errorFor("imageSize")}>
               <input
                 className="rounded-lg border border-border bg-surface px-3 py-2 text-sm text-ink"
                 type="number"
@@ -196,7 +250,25 @@ export function TrainingPage() {
               />
             </Field>
 
-            <Field label="Dropout">
+            <Field
+              label="Hidden layers (anchos separados por coma; vacío = lineal)"
+              error={errorFor("hiddenLayers")}
+            >
+              <input
+                className="rounded-lg border border-border bg-surface px-3 py-2 text-sm text-ink"
+                type="text"
+                value={config.hiddenLayers}
+                disabled={isRunning}
+                onChange={(event) =>
+                  setConfig({
+                    ...config,
+                    hiddenLayers: event.target.value,
+                  })
+                }
+              />
+            </Field>
+
+            <Field label="Dropout" error={errorFor("dropout")}>
               <input
                 className="rounded-lg border border-border bg-surface px-3 py-2 text-sm text-ink"
                 type="number"
@@ -217,7 +289,7 @@ export function TrainingPage() {
 
           <button
             type="button"
-            disabled={starting || isRunning}
+            disabled={starting || isRunning || !gateOpen}
             onClick={() => void handleStartTraining()}
             className="mt-5 rounded-lg bg-accent-lilac px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-accent-lilac/90 disabled:cursor-not-allowed disabled:opacity-50"
           >
@@ -236,7 +308,50 @@ export function TrainingPage() {
         </section>
 
         <aside className="rounded-2xl border border-border bg-surface p-5 shadow-card">
-          <p className="text-xs font-medium uppercase tracking-wide text-ink-faint">Estado</p>
+          <p className="text-xs font-medium uppercase tracking-wide text-ink-faint">
+            Datos de entrenamiento
+          </p>
+
+          {provenance ? (
+            <dl className="mt-3 space-y-2 text-sm">
+              <Row label="Release" value={provenance.dataset_version} />
+              <Row
+                label="Quality gate"
+                value={provenance.quality_gate_status}
+                tone={provenance.quality_gate_status === "pass" ? "ok" : "bad"}
+              />
+              <Row label="Split" value={provenance.manifest_proportions} />
+              <Row label="Manifiesto" value={`${provenance.manifest_sha256.slice(0, 12)}…`} />
+              <Row label="Clases" value={provenance.classes.join(", ")} />
+              {Object.entries(provenance.split_counts).map(([split, counts]) => (
+                <Row
+                  key={split}
+                  label={split}
+                  value={Object.entries(counts)
+                    .map(([name, count]) => `${name} ${count}`)
+                    .join(" · ")}
+                />
+              ))}
+              <Row
+                label="Test aislado"
+                value={provenance.test_isolated ? "sí" : "no"}
+                tone={provenance.test_isolated ? "ok" : "bad"}
+              />
+            </dl>
+          ) : (
+            <p className="mt-2 text-sm text-ink-muted">
+              {provenanceError ?? "Cargando procedencia del release..."}
+            </p>
+          )}
+
+          {provenance && !gateOpen && (
+            <p className="mt-3 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+              No se puede entrenar: la compuerta de calidad no está en pass o el test no está
+              aislado.
+            </p>
+          )}
+
+          <p className="mt-6 text-xs font-medium uppercase tracking-wide text-ink-faint">Estado</p>
 
           {job ? (
             <div className="mt-3 space-y-4">
@@ -268,6 +383,13 @@ export function TrainingPage() {
                   />
                 </div>
               </div>
+
+              {job.mlflowRunId && (
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-ink-muted">MLflow run</span>
+                  <code className="text-xs text-ink">{job.mlflowRunId.slice(0, 12)}</code>
+                </div>
+              )}
 
               <div className="flex items-center justify-between text-sm">
                 <span className="text-ink-muted">Epoch</span>
@@ -329,14 +451,26 @@ function StatusBadge({ status }: { status: TrainingJob["status"] }) {
   );
 }
 
-function Field({ label, children }: { label: string; children: ReactNode }) {
+function Field({ label, error, children }: { label: string; error?: string; children: ReactNode }) {
   return (
     // biome-ignore lint/a11y/noLabelWithoutControl: The input or select is supplied as a nested child.
     <label className="flex flex-col gap-1.5 text-sm">
       <span className="font-medium text-ink">{label}</span>
 
       {children}
+
+      {error && <span className="text-xs text-red-700">{error}</span>}
     </label>
+  );
+}
+
+function Row({ label, value, tone }: { label: string; value: string; tone?: "ok" | "bad" }) {
+  const color = tone === "ok" ? "text-green-700" : tone === "bad" ? "text-red-700" : "text-ink";
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <dt className="text-ink-muted">{label}</dt>
+      <dd className={`text-right font-medium ${color}`}>{value}</dd>
+    </div>
   );
 }
 

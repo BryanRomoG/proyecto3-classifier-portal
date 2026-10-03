@@ -25,13 +25,21 @@ export function buildApiUrl(path: string): string {
   return `${BASE_URL}${path}`;
 }
 
+export interface ApiFieldError {
+  field: string;
+  message: string;
+}
+
 export class ApiError extends Error {
   readonly status: number;
+  /** Errores por campo (`{field, message}`) cuando el backend los devuelve. */
+  readonly fieldErrors: ApiFieldError[];
 
-  constructor(message: string, status: number) {
+  constructor(message: string, status: number, fieldErrors: ApiFieldError[] = []) {
     super(message);
     this.name = "ApiError";
     this.status = status;
+    this.fieldErrors = fieldErrors;
   }
 }
 
@@ -115,20 +123,25 @@ export async function postJson<S extends z.ZodType>(
 
   if (!response.ok) {
     let message = `El servidor respondió con un error (${response.status}).`;
+    let fieldErrors: ApiFieldError[] = [];
 
     try {
       const raw = (await response.json()) as {
         error?: string;
+        errors?: ApiFieldError[];
       };
 
       if (raw.error) {
         message = raw.error;
       }
+      if (Array.isArray(raw.errors)) {
+        fieldErrors = raw.errors;
+      }
     } catch {
       // Se conserva el mensaje genérico.
     }
 
-    throw new ApiError(message, response.status);
+    throw new ApiError(message, response.status, fieldErrors);
   }
 
   let raw: unknown;
