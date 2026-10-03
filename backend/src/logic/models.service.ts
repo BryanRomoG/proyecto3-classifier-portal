@@ -115,3 +115,75 @@ export async function downloadSelectedModel(runId: string) {
 
   return response;
 }
+
+interface ReleaseRecord {
+  version: string;
+  bucket: string | null;
+  s3_uri: string;
+  run_id: string;
+  run_name: string | null;
+  checkpoint_sha256: string | null;
+  dataset: { dataset_version?: string; manifest_sha256?: string } | null;
+  test_metrics: Record<string, number | null> | null;
+  dependencies: Record<string, string> | null;
+  split: Record<string, unknown> | null;
+  objects: Record<
+    string,
+    { key: string; size: number; version_id: string | null; sha256: string | null }
+  >;
+  card_markdown: string;
+  recorded_at: string;
+  verified_with: string;
+}
+
+const RELEASES_DIR = path.resolve(process.cwd(), env.CLASSIFIER_REPORTS_DIR, 'releases');
+
+/**
+ * Versiones semánticas publicadas del modelo (T3-3.7 / rúbrica 5.3, 6.4). Cada una sale de un
+ * registro creado con `release-record`, que lee de S3 cada objeto del paquete (HeadObject);
+ * una versión cuyos objetos no están en el bucket nunca llega a tener registro, así que esta
+ * lista no puede mostrar como publicado algo inexistente. No son runs de MLflow: cada versión
+ * apunta al run del que salió.
+ */
+export async function listVersions() {
+  let files: string[] = [];
+  try {
+    files = (await fs.readdir(RELEASES_DIR)).filter((name) => name.endsWith('.json'));
+  } catch {
+    return [];
+  }
+  const selected = await readSelectedModel();
+  const records = await Promise.all(
+    files.map(
+      async (name) =>
+        JSON.parse(await fs.readFile(path.join(RELEASES_DIR, name), 'utf8')) as ReleaseRecord,
+    ),
+  );
+  return records
+    .sort((a, b) => b.version.localeCompare(a.version, undefined, { numeric: true }))
+    .map((record) => ({
+      version: record.version,
+      runId: record.run_id,
+      runName: record.run_name,
+      checkpointSha256: record.checkpoint_sha256,
+      datasetVersion: record.dataset?.dataset_version ?? null,
+      manifestSha256: record.dataset?.manifest_sha256 ?? null,
+      testMetrics: record.test_metrics,
+      dependencies: record.dependencies,
+      split: record.split,
+      published: Object.keys(record.objects).length > 0,
+      bucket: record.bucket,
+      s3Uri: record.s3_uri,
+      objects: Object.entries(record.objects).map(([name, object]) => ({
+        name,
+        key: object.key,
+        size: object.size,
+        versionId: object.version_id,
+        sha256: object.sha256,
+      })),
+      cardMarkdown: record.card_markdown,
+      recordedAt: record.recorded_at,
+      verifiedWith: record.verified_with,
+      selected: selected?.runId === record.run_id,
+    }));
+}

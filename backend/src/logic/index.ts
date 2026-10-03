@@ -74,6 +74,7 @@ export {
   downloadSelectedModel,
   getSelectedModel,
   listModels,
+  listVersions,
   selectModel,
 } from './models.service.js';
 // Contratos de Data Quality: solo lectura (SPEC-PIPE-001)

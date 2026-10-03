@@ -37,6 +37,7 @@ import {
   initializeApplication,
   listExperiments,
   listModels,
+  listVersions,
   NotFoundError,
   qualityPolicyUpdateSchema,
   queueCrop,
@@ -708,6 +709,17 @@ app.get('/models', async (_req, res) => {
     res.status(200).json({ models });
   } catch (error) {
     sendError(res, error, 'No se pudieron obtener los modelos.');
+  }
+});
+
+/**
+ * Versiones semánticas publicadas (registros leídos de S3), distintas de los runs de MLflow.
+ */
+app.get('/models/versions', async (_req, res) => {
+  try {
+    res.status(200).json({ versions: await listVersions() });
+  } catch (error) {
+    sendError(res, error, 'No se pudieron obtener las versiones publicadas.');
   }
 });
 
