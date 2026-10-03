@@ -219,12 +219,7 @@ export const trainingJobs = mysqlTable(
       .autoincrement()
       .primaryKey(),
 
-    status: mysqlEnum('status', [
-      'queued',
-      'running',
-      'completed',
-      'failed',
-    ])
+    status: mysqlEnum('status', ['queued', 'running', 'completed', 'failed'])
       .notNull()
       .default('queued'),
 

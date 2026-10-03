@@ -1,34 +1,39 @@
-import {
-  createTrainingRun,
-  getLatestTrainingRun,
-  getTrainingRun,
-  trainingConfigSchema,
-} from '../logic/index.js';
-
 import express from 'express';
 import multer from 'multer';
 import { env } from '../config/env.js';
 import {
   checkHealth,
   createAnnotationForImage,
+  createTrainingRun,
   deleteAnnotation,
   deleteImage,
+  downloadSelectedModel,
   exportCocoDataset,
   getAnnotationsForImage,
   getCategories,
   getDashboardSummary,
+  getEvaluation,
+  getExperiment,
   getImageFile,
+  getLatestTrainingRun,
   getQualityPolicy,
   getQualityReport,
+  getSelectedModel,
+  getSelection,
   getSplitReport,
+  getTrainingRun,
   getVersionHistory,
   idParamSchema,
   imageSearchSchema,
   initializeApplication,
+  listExperiments,
+  listModels,
   NotFoundError,
   qualityPolicyUpdateSchema,
   searchImages,
+  selectModel,
   setImageStatus,
+  trainingConfigSchema,
   updateAnnotation,
   updateQualityPolicy,
   uploadImage,
@@ -403,36 +408,14 @@ app.get('/export/coco', async (_req, res) => {
 });
 
 /**
- * Maneja errores generados por Multer.
+ * Crea un entrenamiento nuevo (Fase 2 — Training, T3-2.3 / rúbrica 6.1).
  */
-app.use(
-  (error: unknown, _req: express.Request, res: express.Response, next: express.NextFunction) => {
-    if (error instanceof multer.MulterError) {
-      if (error.code === 'LIMIT_FILE_SIZE') {
-        res.status(413).json({
-          error: 'La imagen excede el tamaño máximo permitido.',
-        });
-        return;
-      }
-
-      res.status(400).json({
-        error: 'No se pudo procesar el archivo.',
-      });
-      return;
-    }
-
-    next(error);
-  },
-);
-
 app.post('/training/jobs', async (req, res) => {
   const parsed = trainingConfigSchema.safeParse(req.body);
 
   if (!parsed.success) {
     res.status(400).json({
-      error:
-        parsed.error.issues[0]?.message ??
-        'Configuración de entrenamiento inválida.',
+      error: parsed.error.issues[0]?.message ?? 'Configuración de entrenamiento inválida.',
     });
     return;
   }
@@ -445,11 +428,7 @@ app.post('/training/jobs', async (req, res) => {
       status: 'queued',
     });
   } catch (error) {
-    sendError(
-      res,
-      error,
-      'No se pudo crear el entrenamiento.',
-    );
+    sendError(res, error, 'No se pudo crear el entrenamiento.');
   }
 });
 
@@ -466,11 +445,7 @@ app.get('/training/jobs/latest', async (_req, res) => {
 
     res.status(200).json(job);
   } catch (error) {
-    sendError(
-      res,
-      error,
-      'No se pudo obtener el entrenamiento.',
-    );
+    sendError(res, error, 'No se pudo obtener el entrenamiento.');
   }
 });
 
@@ -496,13 +471,134 @@ app.get('/training/jobs/:jobId', async (req, res) => {
 
     res.status(200).json(job);
   } catch (error) {
-    sendError(
-      res,
-      error,
-      'No se pudo obtener el entrenamiento.',
-    );
+    sendError(res, error, 'No se pudo obtener el entrenamiento.');
   }
 });
+
+/**
+ * Las 10 corridas de MLflow (Fase 3 — Experiments, T3-3.4 / rúbrica 6.2).
+ */
+app.get('/experiments', async (_req, res) => {
+  try {
+    const experiments = await listExperiments();
+
+    res.status(200).json({ experiments });
+  } catch (error) {
+    sendError(res, error, 'No se pudieron obtener los experimentos.');
+  }
+});
+
+app.get('/experiments/:runId', async (req, res) => {
+  try {
+    const experiment = await getExperiment(req.params.runId);
+
+    res.status(200).json(experiment);
+  } catch (error) {
+    sendError(res, error, 'No se pudo obtener el run.');
+  }
+});
+
+/**
+ * Evaluación final sobre el test congelado (Fase 3 — Evaluation,
+ * T3-3.5 / rúbrica 6.3).
+ */
+app.get('/evaluation', async (_req, res) => {
+  try {
+    const evaluation = await getEvaluation();
+
+    res.status(200).json(evaluation);
+  } catch (error) {
+    sendError(res, error, 'No se pudo obtener la evaluación.');
+  }
+});
+
+app.get('/evaluation/selection', async (_req, res) => {
+  try {
+    const selection = await getSelection();
+
+    res.status(200).json(selection);
+  } catch (error) {
+    sendError(res, error, 'No se pudo obtener la selección.');
+  }
+});
+
+/**
+ * Versiones publicadas del modelo (Fase 3 — Models, T3-3.7 / rúbrica 6.4).
+ */
+app.get('/models', async (_req, res) => {
+  try {
+    const models = await listModels();
+
+    res.status(200).json({ models });
+  } catch (error) {
+    sendError(res, error, 'No se pudieron obtener los modelos.');
+  }
+});
+
+app.get('/models/selected', async (_req, res) => {
+  try {
+    const model = await getSelectedModel();
+
+    if (!model) {
+      res.status(404).json({
+        error: 'No hay un modelo seleccionado.',
+      });
+      return;
+    }
+
+    res.status(200).json(model);
+  } catch (error) {
+    sendError(res, error, 'No se pudo obtener el modelo seleccionado.');
+  }
+});
+
+app.post('/models/:runId/select', async (req, res) => {
+  try {
+    const model = await selectModel(req.params.runId);
+
+    res.status(200).json(model);
+  } catch (error) {
+    sendError(res, error, 'No se pudo seleccionar el modelo.');
+  }
+});
+
+app.get('/models/:runId/download', async (req, res) => {
+  try {
+    const response = await downloadSelectedModel(req.params.runId);
+    const contentType = response.headers.get('content-type') ?? 'application/octet-stream';
+
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Content-Disposition', `attachment; filename="model-${req.params.runId}.pt"`);
+
+    const buffer = Buffer.from(await response.arrayBuffer());
+    res.status(200).send(buffer);
+  } catch (error) {
+    sendError(res, error, 'No se pudo descargar el modelo.');
+  }
+});
+
+/**
+ * Maneja errores generados por Multer.
+ */
+app.use(
+  (error: unknown, _req: express.Request, res: express.Response, next: express.NextFunction) => {
+    if (error instanceof multer.MulterError) {
+      if (error.code === 'LIMIT_FILE_SIZE') {
+        res.status(413).json({
+          error: 'La imagen excede el tamaño máximo permitido.',
+        });
+        return;
+      }
+
+      res.status(400).json({
+        error: 'No se pudo procesar el archivo.',
+      });
+      return;
+    }
+
+    next(error);
+  },
+);
 
 /**
  * Inicializa los servicios necesarios antes de levantar el servidor.

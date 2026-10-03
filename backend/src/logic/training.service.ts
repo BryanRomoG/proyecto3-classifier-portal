@@ -17,9 +17,7 @@ export const trainingConfigSchema = z.object({
 
 export type TrainingConfig = z.infer<typeof trainingConfigSchema>;
 
-export async function createTrainingRun(
-  input: TrainingConfig,
-): Promise<number> {
+export async function createTrainingRun(input: TrainingConfig): Promise<number> {
   const config = trainingConfigSchema.parse(input);
 
   const jobId = await createTrainingJob({

@@ -1,7 +1,4 @@
-import {
-  getTrainingJob,
-  updateTrainingJob,
-} from '../data/repositories/training.repository.js';
+import { getTrainingJob, updateTrainingJob } from '../data/repositories/training.repository.js';
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => {
@@ -9,10 +6,7 @@ function sleep(ms: number): Promise<void> {
   });
 }
 
-async function appendLog(
-  jobId: number,
-  message: string,
-): Promise<void> {
+async function appendLog(jobId: number, message: string): Promise<void> {
   const job = await getTrainingJob(jobId);
 
   if (!job) {
@@ -21,12 +15,7 @@ async function appendLog(
 
   const timestamp = new Date().toISOString();
 
-  const newLogs = [
-    job.logs,
-    `[${timestamp}] ${message}`,
-  ]
-    .filter(Boolean)
-    .join('\n');
+  const newLogs = [job.logs, `[${timestamp}] ${message}`].filter(Boolean).join('\n');
 
   await updateTrainingJob(jobId, {
     logs: newLogs,
@@ -48,10 +37,7 @@ export async function runTrainingJob(jobId: number): Promise<void> {
       progress: 0,
     });
 
-    await appendLog(
-      jobId,
-      `Iniciando entrenamiento con ${job.optimizer}.`,
-    );
+    await appendLog(jobId, `Iniciando entrenamiento con ${job.optimizer}.`);
 
     await appendLog(
       jobId,
@@ -77,16 +63,10 @@ export async function runTrainingJob(jobId: number): Promise<void> {
         progress,
       });
 
-      await appendLog(
-        jobId,
-        `Epoch ${epoch}/${job.epochs} completado. Progress=${progress}%.`,
-      );
+      await appendLog(jobId, `Epoch ${epoch}/${job.epochs} completado. Progress=${progress}%.`);
     }
 
-    await appendLog(
-      jobId,
-      'Entrenamiento completado correctamente.',
-    );
+    await appendLog(jobId, 'Entrenamiento completado correctamente.');
 
     await updateTrainingJob(jobId, {
       status: 'completed',
@@ -95,13 +75,9 @@ export async function runTrainingJob(jobId: number): Promise<void> {
       finishedAt: new Date(),
     });
   } catch (error) {
-    const message =
-      error instanceof Error ? error.message : 'Error desconocido';
+    const message = error instanceof Error ? error.message : 'Error desconocido';
 
-    await appendLog(
-      jobId,
-      `ERROR: ${message}`,
-    );
+    await appendLog(jobId, `ERROR: ${message}`);
 
     await updateTrainingJob(jobId, {
       status: 'failed',
