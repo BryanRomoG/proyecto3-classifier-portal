@@ -14,6 +14,7 @@ import { SearchPage } from "@/pages/SearchPage";
 import { ExperimentsPage } from "@/pages/classifier/Experiments";
 import { EvaluationPage } from "@/pages/classifier/Evaluation";
 import { ModelsPage } from "@/pages/classifier/Models";
+import { InferencePage } from "@/pages/classifier/Inference";
 
 export function App(): JSX.Element {
   return (
@@ -129,3 +130,12 @@ export function App(): JSX.Element {
     </AppLayout>
   }
 />
+
+<Route  
+  path="/inference"  
+  element={ 
+  <AppLayout> 
+    <InferencePage />
+  </AppLayout> 
+  }
+  />
