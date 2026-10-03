@@ -19,6 +19,7 @@ standard ``MLFLOW_TRACKING_URI`` (default ``sqlite:///mlflow.db`` in this direct
     python -m dataset_quality.classifier predict --checkpoint model.pt img.png
     python -m dataset_quality.classifier serve --port 8200
     python -m dataset_quality.classifier serve-inference --port 8300
+    python -m dataset_quality.classifier serve-jobs --port 8400
     python -m dataset_quality.classifier release-build --version v1.0.0 --checkpoint model.pt
     python -m dataset_quality.classifier release-upload --version v1.0.0 --bucket <releases-bucket>
     python -m dataset_quality.classifier release-fetch --version v1.0.0 --bucket <releases-bucket>
@@ -367,6 +368,15 @@ def cmd_serve_inference(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_serve_jobs(args: argparse.Namespace) -> int:
+    import uvicorn
+
+    from dataset_quality.classifier.jobs_app import build_app
+
+    uvicorn.run(build_app(), host=args.host, port=args.port)
+    return 0
+
+
 def cmd_release_build(args: argparse.Namespace) -> int:
     from dataset_quality.classifier.release import ReleaseError, build_package
 
@@ -527,6 +537,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--port", type=int, default=int(os.environ.get("CLASSIFIER_INFERENCE_PORT", 8300))
     )
     sub.set_defaults(handler=cmd_serve_inference)
+
+    sub = commands.add_parser("serve-jobs")
+    sub.add_argument("--host", default="0.0.0.0")
+    sub.add_argument("--port", type=int, default=int(os.environ.get("CLASSIFIER_JOBS_PORT", 8400)))
+    sub.set_defaults(handler=cmd_serve_jobs)
 
     sub = commands.add_parser("release-build")
     sub.add_argument("--checkpoint", type=Path, required=True, help="path to the selected model.pt")
