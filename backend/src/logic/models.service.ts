@@ -8,6 +8,7 @@ import {
   getClassifierRun,
   getClassifierRuns,
 } from '../data/mlflow.client.js';
+import { ValidationError } from './errors.js';
 
 const SELECTED_MODEL_FILE = path.resolve(process.cwd(), env.SELECTED_MODEL_PATH);
 
@@ -67,7 +68,9 @@ export async function selectModel(runId: string) {
   const run = await getClassifierRun(runId);
 
   if (run.info.status !== 'FINISHED') {
-    throw new Error('Solo se puede seleccionar un run terminado.');
+    throw new ValidationError(
+      `El run ${runId} está ${run.info.status}: solo se puede usar un run terminado (FINISHED).`,
+    );
   }
 
   await writeSelectedModel({
