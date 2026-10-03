@@ -1,3 +1,10 @@
+import {
+  createTrainingRun,
+  getLatestTrainingRun,
+  getTrainingRun,
+  trainingConfigSchema,
+} from '../logic/index.js';
+
 import express from 'express';
 import multer from 'multer';
 import { env } from '../config/env.js';
