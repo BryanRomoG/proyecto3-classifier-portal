@@ -2223,10 +2223,3 @@ model.pt
 
 Así tienes trazabilidad real hasta MLflow.
 
----
-
-### Una corrección importante respecto a lo que te pasé antes
-
-En el código anterior de T3-2.3 te propuse crear una tabla `training_jobs` en MariaDB. **No la vuelvas a crear copiando aquel código sin revisar el estado actual del repo**, porque el ZIP que acabas de subir es una versión diferente y no contiene todavía esos cambios. Para estos tickets, primero integra T3-2.3 en esta rama y después añade T3-3.4/3.5/3.7 encima.
-
-También, para **T3-3.4**, si tu profesor exige literalmente que las curvas se obtengan de MLflow y no de `pipeline/reports/classifier/mlflow_runs.json`, usa el cliente anterior: las curvas salen de `/get-artifact` con el `run_id`, no de datos hardcodeados.
