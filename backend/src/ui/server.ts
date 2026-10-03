@@ -1,3 +1,5 @@
+import multer from "multer"; import { postInference, } from "./routes/inference.js";
+
 import express from 'express';
 import multer from 'multer';
 import { env } from '../config/env.js';
@@ -89,6 +91,8 @@ const upload = multer({
   },
 });
 
+const uploadInference = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024, }, });
+
 app.get('/', (_req, res) => {
   res.json({
     project: 'image-annotation-repo',
@@ -106,6 +110,9 @@ app.get('/health', async (_req, res) => {
 /**
  * Recibe una imagen y delega su procesamiento a Logic.
  */
+
+app.post( "/inference", uploadInference.single("file"), postInference, );
+
 app.post('/images', upload.single('image'), async (req, res) => {
   if (!req.file) {
     res.status(400).json({
