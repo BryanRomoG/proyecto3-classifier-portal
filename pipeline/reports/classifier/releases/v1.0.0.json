@@ -1,0 +1,72 @@
+{
+  "bucket": "dataset-releases-prod-685538571046",
+  "card_markdown": "# Model card \u2014 clasificador T3 (`v1.0.0`)\n\nPaquete auto-descriptivo: pesos, configuraci\u00f3n, mapa de clases y preprocesamiento de\nevaluaci\u00f3n viajan juntos, as\u00ed que la inferencia no se desv\u00eda de c\u00f3mo se valid\u00f3 y prob\u00f3.\n\n## Resumen\n\n- Tarea: clasificaci\u00f3n de recortes COCO en `car`, `person`.\n- Arquitectura: `resnet18`.\n- Origen de los pesos iniciales: torchvision.models.ResNet18_Weights.IMAGENET1K_V1 (backbone); head from scratch (seeds.init).\n- Capas entrenables: all layers.\n- Par\u00e1metros: 11308354 entrenables de 11308354.\n\n## Trazabilidad\n\n| Campo | Valor |\n| --- | --- |\n| MLflow run | `44725ac6b1704fed8b06bc4f846651d8` (`r03-adamw-lr1e-4`) |\n| Experimento | `t3-classifier` |\n| dataset_version | `v1.0.0` |\n| manifest_sha256 | `394743403f8a263b462687b733272e9993d7dddaea6a1229f8ee2896b82f3f7d` |\n| dvc_raw_md5 | `0ac4ecdbbd5a9b3144624ec86009b9e7` |\n| quality_gate_status | `pass` |\n| Selecci\u00f3n (validaci\u00f3n) | `best_val_accuracy` = 0.9803 @ `2026-09-30T14:48:58.317648+00:00` |\n| Evaluaci\u00f3n final en test (una vez) | `2026-09-30T14:49:23.191936+00:00` |\n| checkpoint_sha256 | `fe1c2370cb9d811d32cccc27edf0beeb3c440fe758c467a9e3fb91a73e6047cb` |\n| Mejor \u00e9poca | 7 (monitor `val_loss`) |\n\n## M\u00e9tricas en test (split congelado, abierto una sola vez)\n\n| M\u00e9trica | Valor |\n| --- | --- |\n| Accuracy top-1 | 0.9895 |\n| F1 macro | 0.9892 |\n| Correctas / total | 94 / 95 |\n| Baseline clase mayoritaria (`car`) | 0.5684 |\n| Meta 0.85 alcanzada | s\u00ed |\n\n### Por clase\n\n| Clase | Precisi\u00f3n | Recall | F1 | Soporte |\n| --- | --- | --- | --- | --- |\n| car | 0.9818 | 1.0000 | 0.9908 | 54 |\n| person | 1.0000 | 0.9756 | 0.9877 | 41 |\n\n### Matriz de confusi\u00f3n (filas = real, columnas = predicho)\n\n| real \\ predicho | car | person |\n| --- | --- | --- |\n| car | 54 | 0 |\n| person | 1 | 40 |\n\n## Hiperpar\u00e1metros buscados (config efectiva)\n\n| Hiperpar\u00e1metro | Valor |\n| --- | --- |\n| optimizer | \"adamw\" |\n| batch_size | 32 |\n| max_epochs | 15 |\n| learning_rate | 0.0001 |\n| image_size | 128 |\n| hidden_layers | [256] |\n| dropout | 0.3 |\n\nConfiguraci\u00f3n completa (incluidos los fijos): `config.json`.\n\n## Preprocesamiento de evaluaci\u00f3n\n\n```json\n{\n  \"color_mode\": \"RGB\",\n  \"normalize_mean\": [\n    0.485,\n    0.456,\n    0.406\n  ],\n  \"normalize_std\": [\n    0.229,\n    0.224,\n    0.225\n  ],\n  \"resize\": [\n    128,\n    128\n  ],\n  \"to_tensor\": \"scale to [0, 1]\"\n}\n```\n\n## Uso (inferencia limpia)\n\n```bash\npython -m dataset_quality.classifier predict \\\n  --checkpoint <paquete>/model.pt imagen.png\n```\n\n## Limitaciones\n\n- Entrenado solo para las clases congeladas `car`, `person`; no dice nada sobre clases\n  fuera de ese conjunto.\n- Las m\u00e9tricas provienen de un \u00fanico split de test congelado, abierto una sola vez.\n- El preprocesamiento de entrada es fijo (bloque anterior); otra normalizaci\u00f3n cambia\n  las predicciones.\n",
+  "checkpoint_sha256": "fe1c2370cb9d811d32cccc27edf0beeb3c440fe758c467a9e3fb91a73e6047cb",
+  "dataset": {
+    "coco_sha256": "da5b08e319f43aa5568e3530f48e2934a4a79f0cf6762bea93c0dfd74e467c1d",
+    "dataset_version": "v1.0.0",
+    "dvc_raw_md5": "0ac4ecdbbd5a9b3144624ec86009b9e7",
+    "manifest_sha256": "394743403f8a263b462687b733272e9993d7dddaea6a1229f8ee2896b82f3f7d",
+    "quality_gate_status": "pass"
+  },
+  "dependencies": null,
+  "format": "t3-classifier-release-record/v1",
+  "objects": {
+    "MODEL_CARD.md": {
+      "etag": "ba40c019c5f68c0f142fa28c551061c9",
+      "key": "t3-classifier/v1.0.0/MODEL_CARD.md",
+      "sha256": "ca300943666f6ed258585dd031cee9024aced2ad33b27409a6868bf7ac3603de",
+      "size": 2825,
+      "version_id": "uK3SdIU4AWcNxlAIlXu9albwSN4SwJtA"
+    },
+    "SHA256SUMS": {
+      "etag": "c226f2cc5d29e8fcd54e01304de11fc7",
+      "key": "t3-classifier/v1.0.0/SHA256SUMS",
+      "sha256": "4b83fe0abe250161d303a6f4aa08b08c36846833701c201ae63f90c7e98f4728",
+      "size": 394,
+      "version_id": "Q0yhYULpJ8f.WvzMhLIRMHCRr1Et94RK"
+    },
+    "class_map.json": {
+      "etag": "85c89637d93185d3498a5a45e2c1861a",
+      "key": "t3-classifier/v1.0.0/class_map.json",
+      "sha256": "c31dffd5e9829437548601343e30560252a1be30a279f8827f3b3ac985ffc2d6",
+      "size": 33,
+      "version_id": ".d_QrmGnhBduuLdvqdUSWucVnB.qyyO3"
+    },
+    "config.json": {
+      "etag": "2124e0a051b2790dcf7d7791d6665fd0",
+      "key": "t3-classifier/v1.0.0/config.json",
+      "sha256": "27aef7c8ffbb6b60aa164f725bf32380a153af69a880af38bd15044767bf97b2",
+      "size": 502,
+      "version_id": "uRfK47gwTRtWfJGjGl8qrUqFOz5kMZH8"
+    },
+    "metadata.json": {
+      "etag": "336ee096493fc2a266a19b56b093fd3a",
+      "key": "t3-classifier/v1.0.0/metadata.json",
+      "sha256": "09e34c5e0fa95e752e79bc1635c6e4089bae3d47b912e2f7e9d10830e4266e4e",
+      "size": 3297,
+      "version_id": "2mFO4SW3n_slyZfAsFDu.Xrm1S5I_Nk8"
+    },
+    "model.pt": {
+      "etag": "a94766b02c226d439068952fa7db666f-6",
+      "key": "t3-classifier/v1.0.0/model.pt",
+      "sha256": "fe1c2370cb9d811d32cccc27edf0beeb3c440fe758c467a9e3fb91a73e6047cb",
+      "size": 45304323,
+      "version_id": "ep8YrgAJQz3E2GVMWpc.KwsyARbdRAij"
+    }
+  },
+  "prefix": "t3-classifier",
+  "recorded_at": "2026-10-03T07:31:18.042395+00:00",
+  "run_id": "44725ac6b1704fed8b06bc4f846651d8",
+  "run_name": "r03-adamw-lr1e-4",
+  "s3_uri": "s3://dataset-releases-prod-685538571046/t3-classifier/v1.0.0/",
+  "split": null,
+  "test_metrics": {
+    "accuracy": 0.9894736842105263,
+    "correct": 94,
+    "macro_f1": 0.9892400045305243,
+    "total": 95
+  },
+  "verified_with": "HeadObject",
+  "version": "v1.0.0"
+}
