@@ -3,12 +3,7 @@ import { getJson, postJson } from "./client";
 
 export const trainingJobSchema = z.object({
   id: z.number(),
-  status: z.enum([
-    "queued",
-    "running",
-    "completed",
-    "failed",
-  ]),
+  status: z.enum(["queued", "running", "completed", "failed"]),
   optimizer: z.string(),
   batchSize: z.number(),
   epochs: z.number(),
@@ -39,23 +34,13 @@ export async function createTrainingJob(config: {
   imageSize: number;
   dropout: number;
 }) {
-  return postJson(
-    "/training/jobs",
-    config,
-    createTrainingResponseSchema,
-  );
+  return postJson("/training/jobs", config, createTrainingResponseSchema);
 }
 
 export async function getTrainingJob(id: number) {
-  return getJson(
-    `/training/jobs/${id}`,
-    trainingJobSchema,
-  );
+  return getJson(`/training/jobs/${id}`, trainingJobSchema);
 }
 
 export async function getLatestTrainingJob() {
-  return getJson(
-    "/training/jobs/latest",
-    trainingJobSchema,
-  );
+  return getJson("/training/jobs/latest", trainingJobSchema);
 }

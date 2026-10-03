@@ -1,5 +1,4 @@
-```tsx
-import { useEffect, useState, type ReactNode } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 import {
   createTrainingJob,
   getLatestTrainingJob,
@@ -49,10 +48,7 @@ export function TrainingPage() {
       return;
     }
 
-    if (
-      job.status === "completed" ||
-      job.status === "failed"
-    ) {
+    if (job.status === "completed" || job.status === "failed") {
       return;
     }
 
@@ -66,10 +62,7 @@ export function TrainingPage() {
           setJob(updated);
         }
       } catch (requestError) {
-        console.error(
-          "No se pudo actualizar el entrenamiento.",
-          requestError,
-        );
+        console.error("No se pudo actualizar el entrenamiento.", requestError);
       }
     }, 1000);
 
@@ -101,9 +94,7 @@ export function TrainingPage() {
     }
   }
 
-  const isRunning =
-    job?.status === "queued" ||
-    job?.status === "running";
+  const isRunning = job?.status === "queued" || job?.status === "running";
 
   return (
     <PageShell
@@ -113,13 +104,11 @@ export function TrainingPage() {
       <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
         <section className="rounded-2xl border border-border bg-surface p-5 shadow-card">
           <div className="mb-5">
-            <h2 className="text-base font-semibold text-ink">
-              Training configuration
-            </h2>
+            <h2 className="text-base font-semibold text-ink">Training configuration</h2>
 
             <p className="mt-1 text-sm text-ink-muted">
-              El entrenamiento se ejecuta como un trabajo
-              asíncrono y su estado se guarda en la base de datos.
+              El entrenamiento se ejecuta como un trabajo asíncrono y su estado se guarda en la base
+              de datos.
             </p>
           </div>
 
@@ -247,58 +236,41 @@ export function TrainingPage() {
         </section>
 
         <aside className="rounded-2xl border border-border bg-surface p-5 shadow-card">
-          <p className="text-xs font-medium uppercase tracking-wide text-ink-faint">
-            Estado
-          </p>
+          <p className="text-xs font-medium uppercase tracking-wide text-ink-faint">Estado</p>
 
           {job ? (
             <div className="mt-3 space-y-4">
               <div className="flex items-center justify-between">
-                <span className="text-sm text-ink-muted">
-                  Job
-                </span>
+                <span className="text-sm text-ink-muted">Job</span>
 
-                <span className="font-semibold text-ink">
-                  #{job.id}
-                </span>
+                <span className="font-semibold text-ink">#{job.id}</span>
               </div>
 
               <div className="flex items-center justify-between">
-                <span className="text-sm text-ink-muted">
-                  Status
-                </span>
+                <span className="text-sm text-ink-muted">Status</span>
 
                 <StatusBadge status={job.status} />
               </div>
 
               <div>
                 <div className="mb-2 flex justify-between text-sm">
-                  <span className="text-ink-muted">
-                    Progress
-                  </span>
+                  <span className="text-ink-muted">Progress</span>
 
-                  <strong className="text-ink">
-                    {Math.round(job.progress)}%
-                  </strong>
+                  <strong className="text-ink">{Math.round(job.progress)}%</strong>
                 </div>
 
                 <div className="h-3 overflow-hidden rounded-full bg-canvas">
                   <div
                     className="h-full rounded-full bg-accent-lilac transition-all"
                     style={{
-                      width: `${Math.min(
-                        100,
-                        Math.max(0, job.progress),
-                      )}%`,
+                      width: `${Math.min(100, Math.max(0, job.progress))}%`,
                     }}
                   />
                 </div>
               </div>
 
               <div className="flex items-center justify-between text-sm">
-                <span className="text-ink-muted">
-                  Epoch
-                </span>
+                <span className="text-ink-muted">Epoch</span>
 
                 <span className="font-medium text-ink">
                   {job.currentEpoch} / {job.epochs}
@@ -317,19 +289,14 @@ export function TrainingPage() {
         <section className="rounded-2xl border border-border bg-surface p-5 shadow-card">
           <div className="mb-4 flex items-center justify-between">
             <div>
-              <h2 className="text-base font-semibold text-ink">
-                Training logs
-              </h2>
+              <h2 className="text-base font-semibold text-ink">Training logs</h2>
 
               <p className="mt-1 text-sm text-ink-muted">
-                Los logs se guardan en MariaDB y sobreviven a
-                una recarga de la página.
+                Los logs se guardan en MariaDB y sobreviven a una recarga de la página.
               </p>
             </div>
 
-            <span className="text-xs text-ink-faint">
-              Job #{job.id}
-            </span>
+            <span className="text-xs text-ink-faint">Job #{job.id}</span>
           </div>
 
           <pre className="max-h-80 overflow-auto rounded-xl bg-slate-950 p-4 text-xs leading-6 text-slate-100">
@@ -347,11 +314,7 @@ export function TrainingPage() {
   );
 }
 
-function StatusBadge({
-  status,
-}: {
-  status: TrainingJob["status"];
-}) {
+function StatusBadge({ status }: { status: TrainingJob["status"] }) {
   const labels: Record<TrainingJob["status"], string> = {
     queued: "En cola",
     running: "Ejecutando",
@@ -366,18 +329,11 @@ function StatusBadge({
   );
 }
 
-function Field({
-  label,
-  children,
-}: {
-  label: string;
-  children: ReactNode;
-}) {
+function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
+    // biome-ignore lint/a11y/noLabelWithoutControl: The input or select is supplied as a nested child.
     <label className="flex flex-col gap-1.5 text-sm">
-      <span className="font-medium text-ink">
-        {label}
-      </span>
+      <span className="font-medium text-ink">{label}</span>
 
       {children}
     </label>
@@ -401,13 +357,9 @@ function PageShell({
             T3-2.3
           </div>
 
-          <h1 className="text-xl font-semibold text-ink">
-            {title}
-          </h1>
+          <h1 className="text-xl font-semibold text-ink">{title}</h1>
 
-          <p className="mt-1 text-sm text-ink-muted">
-            {description}
-          </p>
+          <p className="mt-1 text-sm text-ink-muted">{description}</p>
         </header>
 
         {children}
@@ -415,4 +367,3 @@ function PageShell({
     </main>
   );
 }
-```

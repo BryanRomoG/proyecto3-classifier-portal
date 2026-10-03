@@ -1,8 +1,14 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 import { AnnotateScreen } from "@/components/annotate/AnnotateScreen";
 import { AppLayout } from "@/components/layout/AppLayout";
+import { ClassifierAppLayout } from "@/components/layout/ClassifierAppLayout";
 import { DatasetAppLayout } from "@/components/layout/DatasetAppLayout";
 import { UploadScreen } from "@/components/upload/UploadScreen";
+import { Evaluation } from "@/pages/classifier/Evaluation";
+import { Experiments } from "@/pages/classifier/Experiments";
+import { Inference } from "@/pages/classifier/Inference";
+import { Models } from "@/pages/classifier/Models";
+import { TrainingPage } from "@/pages/classifier/Training";
 import { DashboardPage } from "@/pages/Dashboard";
 import { AnalyzersPage } from "@/pages/dataset/Analyzers";
 import { CopilotPage } from "@/pages/dataset/Copilot";
@@ -94,6 +100,14 @@ export function App(): JSX.Element {
           </DatasetAppLayout>
         }
       />
+
+      <Route element={<ClassifierAppLayout />}>
+        <Route path="/training" element={<TrainingPage />} />
+        <Route path="/experiments" element={<Experiments />} />
+        <Route path="/evaluation" element={<Evaluation />} />
+        <Route path="/models" element={<Models />} />
+        <Route path="/inference" element={<Inference />} />
+      </Route>
 
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>
