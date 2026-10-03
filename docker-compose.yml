@@ -80,6 +80,9 @@ services:
       - ./pipeline/quality.yaml:/data/quality.yaml
       # Lectura + escritura: Models persiste aquí el run que Inference debe usar.
       - ./pipeline/reports/classifier:/pipeline/reports/classifier
+      # Solo lectura: las imágenes de los recortes de test que Evaluation muestra como
+      # ejemplos (rutas relativas a pipeline/ en test_predictions.csv; salida de DVC).
+      - ./pipeline/data/processed/crops:/pipeline/data/processed/crops:ro
     ports:
       - "3100:3100"
     restart: on-failure:5

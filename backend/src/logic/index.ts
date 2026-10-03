@@ -44,7 +44,10 @@ export { getDashboardSummary } from './dashboard.service.js';
 export { NotFoundError, ValidationError } from './errors.js';
 export {
   getEvaluation,
+  getPredictions,
+  getPredictionsCsv,
   getSelection,
+  getTestCropImage,
 } from './evaluation.service.js';
 export {
   getExperiment,

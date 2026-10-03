@@ -43,6 +43,11 @@ const envSchema = z.object({
   // valida con las reglas del entrenador, revisa la compuerta y entrena de verdad.
   TRAINER_URL: z.string().url().default('http://localhost:8400'),
 
+  // Evaluation: reportes commiteados del clasificador y raíz de `pipeline/`, contra la que se
+  // resuelven las rutas de los recortes de test (`data/processed/crops/...`).
+  CLASSIFIER_REPORTS_DIR: z.string().min(1).default('../pipeline/reports/classifier'),
+  CLASSIFIER_DATA_ROOT: z.string().min(1).default('../pipeline'),
+
   // Archivo compartido que fija el modelo elegido desde la página Models.
   SELECTED_MODEL_PATH: z
     .string()

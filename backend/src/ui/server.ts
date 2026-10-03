@@ -16,12 +16,15 @@ import {
   getExperiment,
   getImageFile,
   getLatestTrainingRun,
+  getPredictions,
+  getPredictionsCsv,
   getQualityPolicy,
   getQualityReport,
   getRunCurves,
   getSelectedModel,
   getSelection,
   getSplitReport,
+  getTestCropImage,
   getTrainingProvenance,
   getTrainingReleases,
   getTrainingRun,
@@ -643,6 +646,45 @@ app.get('/evaluation', async (_req, res) => {
     res.status(200).json(evaluation);
   } catch (error) {
     sendError(res, error, 'No se pudo obtener la evaluación.');
+  }
+});
+
+/**
+ * Predicciones por muestra del test (consulta y exportación para auditoría) y la imagen de
+ * cada recorte; bloqueadas hasta que se abre el test.
+ */
+app.get('/evaluation/predictions', async (_req, res) => {
+  try {
+    res.status(200).json({ predictions: await getPredictions() });
+  } catch (error) {
+    sendError(res, error, 'No se pudieron obtener las predicciones.');
+  }
+});
+
+app.get('/evaluation/predictions.csv', async (_req, res) => {
+  try {
+    const csv = await getPredictionsCsv();
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', 'attachment; filename="test_predictions.csv"');
+    res.status(200).send(csv);
+  } catch (error) {
+    sendError(res, error, 'No se pudo exportar el CSV de predicciones.');
+  }
+});
+
+app.get('/evaluation/crops/:annotationId', async (req, res) => {
+  const annotationId = parseIdParam(req.params.annotationId);
+  if (annotationId === null) {
+    res.status(400).json({ error: 'ID de anotación inválido.' });
+    return;
+  }
+  try {
+    const image = await getTestCropImage(annotationId);
+    res.setHeader('Content-Type', image.contentType);
+    res.setHeader('Cache-Control', 'public, max-age=3600');
+    res.status(200).send(image.body);
+  } catch (error) {
+    sendError(res, error, 'No se pudo obtener el recorte.');
   }
 });
 
