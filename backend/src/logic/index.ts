@@ -48,6 +48,7 @@ export {
 } from './evaluation.service.js';
 export {
   getExperiment,
+  getRunCurves,
   listExperiments,
 } from './experiments.service.js';
 export type { HealthStatus } from './health.service.js';
@@ -99,6 +100,7 @@ export {
   createTrainingRun,
   getLatestTrainingRun,
   getTrainingProvenance,
+  getTrainingReleases,
   getTrainingRun,
   TrainingRejectedError,
   trainingConfigSchema,

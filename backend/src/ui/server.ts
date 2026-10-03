@@ -18,10 +18,12 @@ import {
   getLatestTrainingRun,
   getQualityPolicy,
   getQualityReport,
+  getRunCurves,
   getSelectedModel,
   getSelection,
   getSplitReport,
   getTrainingProvenance,
+  getTrainingReleases,
   getTrainingRun,
   getVersionHistory,
   idParamSchema,
@@ -520,6 +522,21 @@ app.post('/training/jobs', async (req, res) => {
 });
 
 /**
+ * Releases del Proyecto 2: cuál está aprobado y tiene el manifiesto 70/20/10 derivado.
+ */
+app.get('/training/releases', async (_req, res) => {
+  try {
+    res.status(200).json(await getTrainingReleases());
+  } catch (error) {
+    if (error instanceof TrainingRejectedError) {
+      res.status(error.status).json({ error: error.message });
+      return;
+    }
+    sendError(res, error, 'No se pudieron obtener los releases.');
+  }
+});
+
+/**
  * Release, compuerta de calidad y manifiesto 70/20/10 sobre los que entrena un trabajo.
  */
 app.get('/training/provenance', async (_req, res) => {
@@ -587,6 +604,21 @@ app.get('/experiments', async (_req, res) => {
     res.status(200).json({ experiments });
   } catch (error) {
     sendError(res, error, 'No se pudieron obtener los experimentos.');
+  }
+});
+
+/**
+ * Curvas de train/val de una corrida, servidas por el backend desde MLflow (la URL interna
+ * mlflow:5000 no es accesible desde el navegador).
+ */
+app.get('/experiments/:runId/curves', async (req, res) => {
+  try {
+    const curves = await getRunCurves(req.params.runId);
+    res.setHeader('Content-Type', curves.contentType);
+    res.setHeader('Cache-Control', 'public, max-age=3600');
+    res.status(200).send(curves.body);
+  } catch (error) {
+    sendError(res, error, 'No se pudieron obtener las curvas.');
   }
 });
 

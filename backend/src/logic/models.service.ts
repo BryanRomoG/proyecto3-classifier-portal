@@ -2,13 +2,14 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 
 import { env } from '../config/env.js';
-import {
-  getArtifact,
-  getArtifactUrl,
-  getClassifierRun,
-  getClassifierRuns,
-} from '../data/mlflow.client.js';
+import { getArtifact, getClassifierRun, getClassifierRuns } from '../data/mlflow.client.js';
 import { ValidationError } from './errors.js';
+import { curvesPath } from './experiments.service.js';
+
+/** Rutas del backend: el navegador no resuelve la URL interna de MLflow (mlflow:5000). */
+function downloadPath(runId: string): string {
+  return `/models/${encodeURIComponent(runId)}/download`;
+}
 
 const SELECTED_MODEL_FILE = path.resolve(process.cwd(), env.SELECTED_MODEL_PATH);
 
@@ -51,9 +52,9 @@ export async function listModels() {
 
       selected: selected?.runId === run.info.run_id,
 
-      modelUrl: getArtifactUrl(run.info.run_id, 'model.pt'),
+      modelUrl: downloadPath(run.info.run_id),
 
-      curvesUrl: getArtifactUrl(run.info.run_id, 'curves.png'),
+      curvesUrl: curvesPath(run.info.run_id),
 
       checkpointSha256: run.data.tags.checkpoint_sha256 ?? null,
 
@@ -81,7 +82,7 @@ export async function selectModel(runId: string) {
   return {
     runId,
     runName: run.info.run_name ?? runId,
-    artifactUrl: getArtifactUrl(runId, 'model.pt'),
+    artifactUrl: downloadPath(runId),
   };
 }
 
@@ -99,7 +100,7 @@ export async function getSelectedModel() {
 
     runName: run.info.run_name ?? selected.runId,
 
-    artifactUrl: getArtifactUrl(selected.runId, 'model.pt'),
+    artifactUrl: downloadPath(selected.runId),
 
     selectedAt: selected.selectedAt,
 
