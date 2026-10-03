@@ -18,6 +18,7 @@ standard ``MLFLOW_TRACKING_URI`` (default ``sqlite:///mlflow.db`` in this direct
     python -m dataset_quality.classifier recompute
     python -m dataset_quality.classifier predict --checkpoint model.pt img.png
     python -m dataset_quality.classifier serve --port 8200
+    python -m dataset_quality.classifier serve-inference --port 8300
     python -m dataset_quality.classifier release-build --version v1.0.0 --checkpoint model.pt
     python -m dataset_quality.classifier release-upload --version v1.0.0 --bucket <releases-bucket>
     python -m dataset_quality.classifier release-fetch --version v1.0.0 --bucket <releases-bucket>
@@ -357,6 +358,15 @@ def cmd_serve(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_serve_inference(args: argparse.Namespace) -> int:
+    import uvicorn
+
+    from dataset_quality.classifier.inference_http import build_inference_app
+
+    uvicorn.run(build_inference_app(), host=args.host, port=args.port)
+    return 0
+
+
 def cmd_release_build(args: argparse.Namespace) -> int:
     from dataset_quality.classifier.release import ReleaseError, build_package
 
@@ -511,6 +521,13 @@ def build_parser() -> argparse.ArgumentParser:
     sub.add_argument("--port", type=int, default=int(os.environ.get("CLASSIFIER_API_PORT", 8200)))
     sub.set_defaults(handler=cmd_serve)
 
+    sub = commands.add_parser("serve-inference")
+    sub.add_argument("--host", default="0.0.0.0")
+    sub.add_argument(
+        "--port", type=int, default=int(os.environ.get("CLASSIFIER_INFERENCE_PORT", 8300))
+    )
+    sub.set_defaults(handler=cmd_serve_inference)
+
     sub = commands.add_parser("release-build")
     sub.add_argument("--checkpoint", type=Path, required=True, help="path to the selected model.pt")
     sub.add_argument("--version", required=True, help="semantic version, e.g. v1.0.0")
@@ -558,6 +575,7 @@ def main(argv: list[str] | None = None) -> int:
         "grid-check",
         "recompute",
         "serve",
+        "serve-inference",
         "release-build",
         "release-verify",
         "release-upload",

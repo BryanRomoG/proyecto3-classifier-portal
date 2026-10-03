@@ -63,6 +63,9 @@ export type {
 export { searchImages } from './image-search.service.js';
 export { setImageStatus } from './image-status.service.js';
 export { deleteImage, uploadImage } from './image-upload.service.js';
+export type { InferenceFile, InferenceResult, QueuedInferenceResult } from './inference.service.js';
+export { inferCrop, inferImage, queueCrop, queueImage } from './inference.service.js';
+export { inferenceCropSchema } from './inference.validation.js';
 export {
   downloadSelectedModel,
   getSelectedModel,

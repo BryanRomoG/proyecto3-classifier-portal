@@ -25,8 +25,40 @@ interface MlflowRun {
 }
 
 interface SearchRunsResponse {
-  runs: MlflowRun[];
+  runs: RawMlflowRun[];
   next_page_token?: string;
+}
+
+interface MlflowKeyValue<T> {
+  key: string;
+  value: T;
+}
+
+interface RawMlflowRun extends Omit<MlflowRun, 'data'> {
+  data: {
+    params: MlflowKeyValue<string>[] | Record<string, string>;
+    metrics: MlflowKeyValue<number>[] | Record<string, number>;
+    tags: MlflowKeyValue<string>[] | Record<string, string>;
+  };
+}
+
+function toRecord<T>(values: MlflowKeyValue<T>[] | Record<string, T>): Record<string, T> {
+  if (!Array.isArray(values)) {
+    return values;
+  }
+
+  return Object.fromEntries(values.map(({ key, value }) => [key, value]));
+}
+
+function normalizeRun(run: RawMlflowRun): MlflowRun {
+  return {
+    ...run,
+    data: {
+      params: toRecord(run.data.params),
+      metrics: toRecord(run.data.metrics),
+      tags: toRecord(run.data.tags),
+    },
+  };
 }
 
 async function mlflowRequest<T>(path: string, init?: RequestInit): Promise<T> {
@@ -50,14 +82,14 @@ async function mlflowRequest<T>(path: string, init?: RequestInit): Promise<T> {
 
 export async function getClassifierExperiment(): Promise<MlflowExperiment> {
   const query = new URLSearchParams({
-    name: EXPERIMENT_NAME,
+    experiment_name: EXPERIMENT_NAME,
   });
 
   const response = await mlflowRequest<{
-    experiments: MlflowExperiment[];
+    experiment: MlflowExperiment;
   }>(`/api/2.0/mlflow/experiments/get-by-name?${query}`);
 
-  const experiment = response.experiments?.[0];
+  const experiment = response.experiment;
 
   if (!experiment) {
     throw new Error(`No existe el experimento de MLflow "${EXPERIMENT_NAME}".`);
@@ -79,7 +111,7 @@ export async function getClassifierRuns(): Promise<MlflowRun[]> {
     }),
   });
 
-  return response.runs;
+  return response.runs.map(normalizeRun);
 }
 
 export async function getClassifierRun(runId: string): Promise<MlflowRun> {
@@ -88,10 +120,10 @@ export async function getClassifierRun(runId: string): Promise<MlflowRun> {
   });
 
   const response = await mlflowRequest<{
-    run: MlflowRun;
+    run: RawMlflowRun;
   }>(`/api/2.0/mlflow/runs/get?${query}`);
 
-  return response.run;
+  return normalizeRun(response.run);
 }
 
 export function getArtifactUrl(runId: string, artifactPath: string): string {

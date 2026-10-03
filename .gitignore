@@ -72,6 +72,7 @@ pipeline/mlflow.db
 pipeline/mlruns/
 pipeline/mlartifacts/
 pipeline/mlflow-data/
+pipeline/reports/classifier/selected-model.json
 *.pt
 *.pth
 *.ckpt
