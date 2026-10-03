@@ -11,6 +11,9 @@ import { SettingsPage } from "@/pages/dataset/Settings";
 import { SplitsPage } from "@/pages/dataset/Splits";
 import { VersionsPage } from "@/pages/dataset/Versions";
 import { SearchPage } from "@/pages/SearchPage";
+import { ExperimentsPage } from "@/pages/classifier/Experiments";
+import { EvaluationPage } from "@/pages/classifier/Evaluation";
+import { ModelsPage } from "@/pages/classifier/Models";
 
 export function App(): JSX.Element {
   return (
@@ -99,3 +102,30 @@ export function App(): JSX.Element {
     </Routes>
   );
 }
+
+<Route
+  path="/experiments"
+  element={
+    <AppLayout>
+      <ExperimentsPage />
+    </AppLayout>
+  }
+/>
+
+<Route
+  path="/evaluation"
+  element={
+    <AppLayout>
+      <EvaluationPage />
+    </AppLayout>
+  }
+/>
+
+<Route
+  path="/models"
+  element={
+    <AppLayout>
+      <ModelsPage />
+    </AppLayout>
+  }
+/>
