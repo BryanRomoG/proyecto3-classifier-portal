@@ -1,4 +1,4 @@
-```tsx
+
 import { useEffect, useState } from "react";
 import {
   getEvaluation,
@@ -326,4 +326,3 @@ function Metric({
     </div>
   );
 }
-```
