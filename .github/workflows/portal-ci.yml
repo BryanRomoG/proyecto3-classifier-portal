@@ -1,7 +1,7 @@
 name: Portal CI
 
 # Backend (Express) and frontend (React) of the portal: Biome, typecheck, tests and build,
-# with no continue-on-error, so a broken page or route fails the build (rubric 7.3).
+# and every step must pass, so a broken page or route fails the build (rubric 7.3).
 on:
   push:
     paths:
