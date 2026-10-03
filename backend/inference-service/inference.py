@@ -38,11 +38,6 @@ DEVICE = torch.device(
 # CLASES
 # ============================================================
 
-# IMPORTANTE:
-# Deben ser exactamente las mismas clases usadas por Evaluation.
-#
-# NO cambies el orden.
-#
 CLASS_NAMES = [
     "cat",
     "dog",
@@ -114,21 +109,7 @@ def load_model():
         map_location=DEVICE,
     )
 
-    # ========================================================
-    # AQUÍ DEBES USAR LA MISMA ARQUITECTURA DE EVALUATION
-    # ========================================================
 
-    #
-    # Ejemplo:
-    #
-    # model = build_model(
-    #     num_classes=len(CLASS_NAMES)
-    # )
-    #
-    # model.load_state_dict(
-    #     checkpoint["model_state_dict"]
-    # )
-    #
 
     if isinstance(
         checkpoint,
