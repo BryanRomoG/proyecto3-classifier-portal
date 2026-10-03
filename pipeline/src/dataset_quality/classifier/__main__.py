@@ -18,6 +18,10 @@ standard ``MLFLOW_TRACKING_URI`` (default ``sqlite:///mlflow.db`` in this direct
     python -m dataset_quality.classifier recompute
     python -m dataset_quality.classifier predict --checkpoint model.pt img.png
     python -m dataset_quality.classifier serve --port 8200
+    python -m dataset_quality.classifier release-build --version v1.0.0 --checkpoint model.pt
+    python -m dataset_quality.classifier release-upload --version v1.0.0 --bucket <releases-bucket>
+    python -m dataset_quality.classifier release-fetch --version v1.0.0 --bucket <releases-bucket>
+    python -m dataset_quality.classifier release-verify --package-dir <package dir>
 """
 
 from __future__ import annotations
@@ -35,6 +39,8 @@ DEFAULT_POLICY = Path("experiments/selection_policy.yaml")
 DEFAULT_RUNS_DIR = Path("artifacts/classifier/runs")
 DEFAULT_SELECTED_DIR = Path("artifacts/classifier/selected")
 DEFAULT_REPORT_DIR = Path("reports/classifier")
+DEFAULT_RELEASE_DIR = Path("artifacts/classifier/release")
+DEFAULT_RELEASE_PREFIX = "t3-classifier"
 REPRO_EXPERIMENT = "t3-smoke-repro"
 
 EXIT_INVALID = 2
@@ -351,6 +357,66 @@ def cmd_serve(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_release_build(args: argparse.Namespace) -> int:
+    from dataset_quality.classifier.release import ReleaseError, build_package
+
+    try:
+        result = build_package(
+            checkpoint=args.checkpoint,
+            version=args.version,
+            selection_path=args.selection,
+            evaluation_path=args.evaluation,
+            output_dir=args.output_dir,
+        )
+    except ReleaseError as error:
+        print(f"[release-build] {error}", file=sys.stderr)
+        return EXIT_INVALID
+    _print(result)
+    return 0
+
+
+def cmd_release_verify(args: argparse.Namespace) -> int:
+    from dataset_quality.classifier.release import verify_package
+
+    result = verify_package(args.package_dir)
+    _print(result)
+    return 0 if result["ok"] else EXIT_INVALID
+
+
+def cmd_release_upload(args: argparse.Namespace) -> int:
+    from dataset_quality.classifier.release import ReleaseError, release_store, upload_package
+
+    store = release_store(args.bucket, args.region)
+    try:
+        result = upload_package(
+            store=store,
+            package_dir=args.package_dir,
+            version=args.version,
+            prefix=args.prefix,
+        )
+    except ReleaseError as error:
+        print(f"[release-upload] {error}", file=sys.stderr)
+        return EXIT_INVALID
+    _print(result)
+    return 0
+
+
+def cmd_release_fetch(args: argparse.Namespace) -> int:
+    from dataset_quality.classifier.release import fetch_package, release_store
+
+    store = release_store(args.bucket, args.region)
+    result = fetch_package(
+        store=store,
+        version=args.version,
+        destination=args.destination,
+        prefix=args.prefix,
+    )
+    if not result["ok"]:
+        print(f"[release-fetch] integrity check failed for {args.destination}", file=sys.stderr)
+    _print(result)
+    return 0 if result["ok"] else EXIT_INVALID
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="python -m dataset_quality.classifier")
     commands = parser.add_subparsers(dest="command", required=True)
@@ -444,6 +510,36 @@ def build_parser() -> argparse.ArgumentParser:
     sub.add_argument("--host", default="0.0.0.0")
     sub.add_argument("--port", type=int, default=int(os.environ.get("CLASSIFIER_API_PORT", 8200)))
     sub.set_defaults(handler=cmd_serve)
+
+    sub = commands.add_parser("release-build")
+    sub.add_argument("--checkpoint", type=Path, required=True, help="path to the selected model.pt")
+    sub.add_argument("--version", required=True, help="semantic version, e.g. v1.0.0")
+    sub.add_argument("--selection", type=Path, default=DEFAULT_REPORT_DIR / "selection.json")
+    sub.add_argument("--evaluation", type=Path, default=DEFAULT_REPORT_DIR / "test_evaluation.json")
+    sub.add_argument("--output-dir", type=Path, default=DEFAULT_RELEASE_DIR)
+    sub.set_defaults(handler=cmd_release_build)
+
+    sub = commands.add_parser("release-verify")
+    sub.add_argument("--package-dir", type=Path, required=True)
+    sub.set_defaults(handler=cmd_release_verify)
+
+    sub = commands.add_parser("release-upload")
+    sub.add_argument("--package-dir", type=Path, required=True)
+    sub.add_argument("--version", required=True)
+    sub.add_argument(
+        "--bucket", required=True, help="releases bucket, e.g. dataset-releases-prod-…"
+    )
+    sub.add_argument("--prefix", default=DEFAULT_RELEASE_PREFIX)
+    sub.add_argument("--region", default=None)
+    sub.set_defaults(handler=cmd_release_upload)
+
+    sub = commands.add_parser("release-fetch")
+    sub.add_argument("--version", required=True)
+    sub.add_argument("--bucket", required=True)
+    sub.add_argument("--destination", type=Path, required=True)
+    sub.add_argument("--prefix", default=DEFAULT_RELEASE_PREFIX)
+    sub.add_argument("--region", default=None)
+    sub.set_defaults(handler=cmd_release_fetch)
     return parser
 
 
@@ -455,7 +551,19 @@ def main(argv: list[str] | None = None) -> int:
         if hasattr(stream, "reconfigure"):
             stream.reconfigure(errors="backslashreplace")
     args = build_parser().parse_args(argv)
-    if args.command not in {"schema", "validate-config", "grid-check", "recompute", "serve"}:
+    # Commands that never touch MLflow: skip setting a tracking URI (and importing mlflow).
+    no_mlflow_commands = {
+        "schema",
+        "validate-config",
+        "grid-check",
+        "recompute",
+        "serve",
+        "release-build",
+        "release-verify",
+        "release-upload",
+        "release-fetch",
+    }
+    if args.command not in no_mlflow_commands:
         import mlflow
 
         mlflow.set_tracking_uri(os.environ.get("MLFLOW_TRACKING_URI", DEFAULT_TRACKING_URI))
