@@ -1,40 +1,167 @@
-# Proyecto-02-dataset-Quality
-MLOps project for dataset quality, validation, reproducible splitting, versioning and release management using COCO, Pydantic, DVC, MinIO/S3, Docker, Terraform and GitHub Actions. Includes automated quality analyzers, quality gates, dataset versioning, a web dashboard and an MCP-based Dataset Copilot.
-# Team 3 — Dataset Quality & Versioning Pipeline
+# Proyecto 3 · Clasificador de imágenes integrado al portal
 
+Clasificación multiclase de **un objeto por imagen**, entrenada sobre recortes de las cajas
+COCO del dataset aprobado del Proyecto 2. Incluye experimentos registrados en MLflow,
+selección del candidato por validación, una evaluación única sobre un test congelado, un
+modelo versionado con su tarjeta en AWS S3, y cinco páginas nuevas dentro del mismo portal:
+**Training, Experiments, Evaluation, Models e Inference**.
 
-
-Este proyecto implementa un pipeline reproducible para transformar un dataset en formato COCO en un dataset validado, analizado, particionado, versionado y liberable.
-
-El objetivo principal es garantizar que una versión del dataset solo pueda ser liberada cuando cumpla las políticas de calidad definidas por el equipo.
-
----
-
-## Team 3
-
-- Hannah Chenoa
-- Diego Lemus
-- Mauricio Figueroa
-- Santiago Ortiz
+Este repositorio parte del release `v1.0.0` del Proyecto 2 (Quality Gate en `PASS`), trabajo
+previo de Santiago Ortiz, reutilizado con autorización del profesor. El portal de anotación
+(Proyecto 1) y el pipeline de calidad y versionado (Proyecto 2) siguen funcionando dentro de
+la misma aplicación; sus secciones están más abajo.
 
 ---
 
-## Objetivo del proyecto
+## Equipo
 
-El sistema toma como entrada un dataset COCO y ejecuta un pipeline compuesto por cinco etapas principales:
+| Integrante | Rol | Responsabilidad en el Proyecto 3 |
+|---|---|---|
+| Bryan Romo | Project Manager | repositorio y reglas, congelamiento de clases, CI y disciplina de repo, auditoría final |
+| Luisa Zaldivar | ML Engineer | CNN, entrenamiento por minibatches, reproducibilidad, 10 corridas MLflow, selección y evaluación final |
+| Ignacio Villaseñor | Frontend / Full-stack | las 5 páginas nuevas del portal |
+| Santiago Ortiz | Backend / MLOps | recortes COCO, manifiesto 70/20/10, paquete del modelo y publicación en S3 |
 
-1. Ingesta y validación del dataset
-2. Análisis automático de calidad
-3. Quality Gate
-4. Generación reproducible de splits
-5. Versionado y promoción del dataset
-
-El pipeline puede terminar en dos estados:
-
-- `PASS`: el dataset cumple las políticas y puede continuar hacia split y versionado.
-- `FAIL`: el dataset no cumple una o más políticas críticas y el release queda bloqueado.
+Plan de trabajo: `Plan de Trabajo - Proyecto 3 V1.docx` (raíz del repo).
 
 ---
+
+## Flujo del Proyecto 3
+
+```text
+release aprobado del Proyecto 2 (DVC v1.0.0, Quality Gate PASS)
+  -> recortes desde cajas COCO válidas, con exclusiones registradas      (T3-1.1)
+  -> manifiesto derivado 70/20/10 sin fuga, agrupado por imagen original
+     y por duplicados cercanos                                          (T3-1.2)
+  -> entrenamiento por minibatches: ResNet-18, semillas controladas,
+     aumentación solo en train, early stopping con la mejor época      (T3-1.3 a T3-2.5)
+  -> 10 corridas en MLflow                                              (T3-3.1)
+  -> selección del candidato por validación, antes de abrir el test     (T3-3.2)
+  -> evaluación única sobre el test congelado                           (T3-3.3)
+  -> paquete versionado del modelo + tarjeta -> AWS S3                  (T3-3.6)
+  -> páginas del portal                                (T3-1.5, 2.3, 3.4, 3.5, 3.7, 4.1)
+```
+
+Clases: `car` y `person`. `dog` se excluyó **antes** de ver el test por no tener muestras
+(acta en `docs/t3-0-6-class-freeze.md`). El manifiesto tiene 1038 recortes (740 / 203 / 95)
+de 309 imágenes originales de `car` y 311 de `person`.
+
+## Resultados y trazabilidad
+
+| Eslabón | Valor | Dónde se verifica |
+|---|---|---|
+| Release de origen | `v1.0.0`, COCO md5 `0ac4ecdbbd5a9b3144624ec86009b9e7`, Quality Gate `pass` | `pipeline/data/raw/coco-dataset.json.dvc`; etiquetas `dvc_raw_md5` y `quality_gate_status` de cada corrida |
+| Manifiesto 70/20/10 | SHA-256 `394743403f8a263b462687b733272e9993d7dddaea6a1229f8ee2896b82f3f7d` | `pipeline/data/processed/classifier_split_manifest.json` (salida DVC) |
+| Corridas | 12 en el experimento `t3-classifier`, **10 válidas** | `list-runs`; `pipeline/reports/classifier/audit_runs.json` |
+| Candidato | `r03-adamw-lr1e-4`, run `44725ac6b1704fed8b06bc4f846651d8` | `pipeline/reports/classifier/selection.json` |
+| Checkpoint | SHA-256 `fe1c2370cb9d811d32cccc27edf0beeb3c440fe758c467a9e3fb91a73e6047cb` | `selection.json`; `verify_mlflow_restore.py` |
+| Test | **94/95 = 0.98947**, F1 macro 0.98924, baseline de clase mayoritaria 0.5684 | `test_predictions.csv`, `test_evaluation.json`, `interpretation.md`; `audit-test` |
+| Store de MLflow | DVC `pipeline/mlflow-data.dvc` en `s3://dvc-cache-prod-685538571046` | `pipeline/reports/classifier/mlflow_s3_persistence.md` |
+| Versión del modelo | `v1.0.0`: pesos, tarjeta, configuración, mapa de clases y preprocesamiento | `docs/t3-3-6-model-release.md` |
+
+Toda la evidencia de ML está en `pipeline/reports/classifier/`. Cómo se generó cada archivo
+está en la sección del clasificador de `pipeline/README.md`.
+
+---
+
+## Clon limpio: orden de arranque
+
+1. **Restaurar el store de MLflow, antes del primer `docker compose up`.** Requiere DVC con
+   soporte S3 y credenciales AWS de lectura sobre `dvc-cache-prod-685538571046`:
+
+   ```bash
+   pip install "dvc[s3]>=3,<4"
+   cd pipeline
+   dvc pull -r prod mlflow-data.dvc     # "94 files fetched and 205 files added"
+   cd ..
+   ```
+
+   Si el servicio `mlflow` ya arrancó en este clon, habrá creado un store vacío y el `pull`
+   se negará a sobrescribirlo. En ese caso: `docker compose stop mlflow`, luego
+   `dvc pull -r prod --force mlflow-data.dvc` (desde `pipeline/`) y `docker compose start mlflow`.
+
+   Sin credenciales, las 12 corridas con sus parámetros, métricas por época, etiquetas y
+   curvas están versionadas en `pipeline/reports/classifier/mlflow_runs.json` y `curves/`.
+
+2. **Restaurar el dataset real y levantar el stack:** `./scripts/restore-env.sh` (ver
+   [Dataset real](#dataset-real-necesario-para-el-pipeline)). El script arranca
+   `docker compose up -d` por su cuenta.
+
+3. **Comprobar MLflow** (desde `pipeline/`, con el stack arriba):
+   `python scripts/verify_mlflow_restore.py` debe terminar con `"passes": true`.
+
+4. **Abrir el portal** en http://localhost:8080. Las páginas del clasificador se describen abajo.
+
+## Páginas del clasificador
+
+Viven en la misma Web App que las de los Proyectos 1 y 2, con su propio menú.
+
+| Ruta | Qué muestra | Fuente de datos |
+|---|---|---|
+| `/training` | formulario de parámetros y trabajo en segundo plano, con estado, progreso y logs que persisten al recargar | backend `POST /training/jobs`, `GET /training/jobs/:jobId` (tabla `training_jobs` en MariaDB) |
+| `/experiments` | corridas de MLflow, sus parámetros y métricas | backend `GET /experiments`, `GET /experiments/:runId` → API de MLflow |
+| `/evaluation` | candidato seleccionado, métricas finales y matriz de confusión | backend `GET /evaluation`, `GET /evaluation/selection` → `pipeline/reports/classifier/` |
+| `/models` | modelos, selección para inferencia y descarga | backend `GET /models`, `POST /models/:runId/select`, `GET /models/:runId/download` |
+| `/inference` | carga de una imagen para clasificar | — |
+
+La validación de la configuración de entrenamiento con las mismas reglas que el entrenador
+está en el servicio `classifier-api` (`GET /classifier-api/training/schema`,
+`POST /classifier-api/training/validate`). Los contratos de datos para el portal están en
+`docs/t3-ml-contracts.md`.
+
+### Pendientes conocidos
+
+Estado del código en `main` a la fecha de esta revisión del README. Hay que quitar cada punto
+cuando se resuelva:
+
+- **Entrenamiento desde el portal:** `backend/src/logic/training.worker.ts` simula las épocas
+  (`sleep`) en lugar de ejecutar el entrenador (`python -m dataset_quality.classifier train`).
+  El formulario valida con su propio esquema, que no incluye `hidden_layers`, en lugar de usar
+  `classifier-api`.
+- **Experiments, Evaluation y Models dentro de Docker:** el servicio `backend` de
+  `docker-compose.yml` no define `MLFLOW_TRACKING_URI` (el cliente usa `localhost:5000` por
+  defecto) ni monta `pipeline/reports/classifier`, que el backend lee desde
+  `../pipeline/reports/classifier`.
+- **Inference:** la página todavía no llama a ningún endpoint de predicción.
+
+---
+
+## Clasificador: comandos y verificación
+
+El código está en `pipeline/src/dataset_quality/classifier/`. La guía completa (entrenamiento,
+las 10 corridas, selección, evaluación y verificación) está en la sección del clasificador de
+`pipeline/README.md`. Desde `pipeline/`, con `PYTHONPATH=src` y
+`MLFLOW_TRACKING_URI=http://localhost:5000`:
+
+| Qué se comprueba | Comando |
+|---|---|
+| Pruebas del clasificador | `python -m pytest tests/classifier -q` |
+| Configuración inválida rechazada (sale con código 2) | `python -m dataset_quality.classifier validate-config --json '{"batch_size": 0}'` |
+| Las 10 corridas válidas y los 7 hiperparámetros con ≥ 2 valores | `python -m dataset_quality.classifier list-runs` |
+| Selección por validación y antes del test | `python -m dataset_quality.classifier audit-selection` |
+| Métricas desde las predicciones guardadas, contra el JSON y MLflow | `python -m dataset_quality.classifier recompute` y `audit-test` |
+| Evaluación repetida con el checkpoint, sin sobrescribir | `python -m dataset_quality.classifier evaluate --audit` |
+| Reproducibilidad de dos corridas | `python -m dataset_quality.classifier repro-check <RUN_A> <RUN_B>` |
+| Prueba de mutación en una copia aislada | `python scripts/classifier_mutation_check.py` |
+
+`list-runs`, `audit-selection`, `audit-test`, `evaluate --audit`, `repro-check` y la prueba
+de mutación salen con código distinto de 0 si su comprobación falla; `recompute` solo imprime
+las métricas recalculadas. Las salidas de referencia están commiteadas en
+`pipeline/reports/classifier/`.
+
+## Pruebas y CI
+
+- GitHub Actions (`.github/workflows/pipeline-ci.yml`): `ruff check`, `ruff format --check` y
+  `pytest` del pipeline, sin `continue-on-error`.
+- Backend y frontend: `npm run lint` (Biome), `npm run typecheck` y `npm test` dentro de
+  `backend/` o `frontend/`. Hoy no corren en CI.
+
+---
+
+# Base heredada de los Proyectos 1 y 2
+
+Lo que sigue documenta el portal de anotación y el pipeline de calidad y versionado sobre los
+que se construye el Proyecto 3.
 
 ## Levantar el stack (Web App)
 
@@ -65,7 +192,10 @@ Esto levanta los siete servicios por defecto (`mariadb`, `minio`, `backend`,
 pipeline de Python, que vive detrás de un profile aparte (ver
 [Pipeline (Python)](#pipeline-python) más abajo). El Portal de Anotación
 (Proyecto 1, rutas `/dashboard`, `/search`, `/upload`) funciona con solo este
-comando. **Las 6 pantallas de Dataset Quality** (`/overview`, `/analyzers`,
+comando. Las 5 páginas del clasificador (`/training`, `/experiments`, `/evaluation`,
+`/models`, `/inference`) se describen en [Páginas del clasificador](#páginas-del-clasificador);
+las que leen MLflow necesitan su store restaurado **antes** de este comando (ver
+[Clon limpio: orden de arranque](#clon-limpio-orden-de-arranque)). **Las 6 pantallas de Dataset Quality** (`/overview`, `/analyzers`,
 `/splits`, `/versions`, `/copilot`, `/settings`) necesitan además que el
 pipeline haya corrido al menos una vez -- son las que leen
 `pipeline/data/interim/*.json` -- ver la sección de DVC más abajo para el
@@ -138,9 +268,9 @@ versiona con DVC, no con git.
 
 ---
 
-# Arquitectura
+## Arquitectura del pipeline de calidad (Proyecto 2)
 
-El flujo general del proyecto es:
+El flujo del pipeline de calidad es:
 
 ```text
 COCO Dataset
