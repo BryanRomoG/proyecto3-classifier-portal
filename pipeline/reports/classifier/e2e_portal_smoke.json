@@ -1,0 +1,62 @@
+{
+  "started_at": "2026-10-03T09:13:13.078666+00:00",
+  "release": {
+    "dataset_version": "v1.0.0",
+    "quality_gate_status": "pass",
+    "manifest_sha256": "394743403f8a263b462687b733272e9993d7dddaea6a1229f8ee2896b82f3f7d",
+    "dvc_raw_md5": "0ac4ecdbbd5a9b3144624ec86009b9e7"
+  },
+  "job": {
+    "job_id": 4,
+    "trainer_job_id": "341b9dfdec5c",
+    "status": "completed",
+    "mlflow_run_id": "93bdf36f0f30496eafea5725f6128bab",
+    "error": null,
+    "dataset_version": "v1.0.0",
+    "manifest_sha256": "394743403f8a263b462687b733272e9993d7dddaea6a1229f8ee2896b82f3f7d"
+  },
+  "evaluation": {
+    "selected_run_id": "44725ac6b1704fed8b06bc4f846651d8",
+    "reported_accuracy": 0.9894736842105263,
+    "recomputed_accuracy": 0.9894736842105263,
+    "test_crops": 95
+  },
+  "publication": {
+    "store": "minio http://localhost:9000",
+    "s3_uri": "s3://t3-classifier-e2e/t3-classifier/v0.0.1/",
+    "run_id": "44725ac6b1704fed8b06bc4f846651d8",
+    "model_sha256": "fe1c2370cb9d811d32cccc27edf0beeb3c440fe758c467a9e3fb91a73e6047cb",
+    "objects": 6
+  },
+  "inference": {
+    "annotation_id": 56,
+    "short_run": {
+      "run_id": "93bdf36f0f30496eafea5725f6128bab",
+      "predicted": "person"
+    },
+    "restored_model": {
+      "run_id": "44725ac6b1704fed8b06bc4f846651d8",
+      "predicted": "car",
+      "confidence": 0.8934767842292786,
+      "csv_predicted": "car",
+      "csv_confidence": 0.8934769034385681
+    }
+  },
+  "checks": {
+    "approved_release_with_manifest": true,
+    "quality_gate_pass": true,
+    "job_accepted": true,
+    "job_completed": true,
+    "job_on_the_checked_manifest": true,
+    "run_curves_served": true,
+    "accuracy_recomputed_from_predictions": true,
+    "selected_model_downloaded": true,
+    "published_package_traces_to_selected_run": true,
+    "published_model_sha256_is_selected_checkpoint": true,
+    "inference_used_the_short_run": true,
+    "probabilities_sum_to_one": true,
+    "restored_model_matches_predictions_csv": true
+  },
+  "passes": true,
+  "finished_at": "2026-10-03T09:14:50.734575+00:00"
+}

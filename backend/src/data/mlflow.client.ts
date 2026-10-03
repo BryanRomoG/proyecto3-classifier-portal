@@ -98,14 +98,21 @@ export async function getClassifierExperiment(): Promise<MlflowExperiment> {
   return experiment;
 }
 
-export async function getClassifierRuns(): Promise<MlflowRun[]> {
+/**
+ * Corridas del experimento oficial. Experiments las muestra todas (también las que no
+ * terminaron, marcadas como inválidas); Models solo ofrece las terminadas.
+ */
+export async function getClassifierRuns(
+  options: { finishedOnly?: boolean } = {},
+): Promise<MlflowRun[]> {
   const experiment = await getClassifierExperiment();
+  const finishedOnly = options.finishedOnly ?? true;
 
   const response = await mlflowRequest<SearchRunsResponse>('/api/2.0/mlflow/runs/search', {
     method: 'POST',
     body: JSON.stringify({
       experiment_ids: [experiment.experiment_id],
-      filter: "attributes.status = 'FINISHED'",
+      ...(finishedOnly ? { filter: "attributes.status = 'FINISHED'" } : {}),
       order_by: ['attributes.start_time DESC'],
       max_results: 100,
     }),

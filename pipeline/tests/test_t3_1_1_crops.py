@@ -832,6 +832,9 @@ def test_two_runs_with_equal_inputs_produce_identical_json_and_png_bytes(
     # Nothing run-dependent (a timestamp, a host path, ...) may leak into the JSON.
     assert "generated_at" not in first_bytes["crops_manifest.json"].decode("utf-8")
     assert "generated_at" not in first_bytes["crop_exclusions.json"].decode("utf-8")
+    # Their hashes are recorded downstream (classifier split provenance): no OS-dependent CRLF.
+    assert b"\r\n" not in first_bytes["crops_manifest.json"]
+    assert b"\r\n" not in first_bytes["crop_exclusions.json"]
 
 
 def test_stale_crop_files_are_removed_so_the_tree_matches_the_manifest(

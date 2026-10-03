@@ -402,4 +402,5 @@ def _write_json(path: Path, payload: str) -> None:
     """Write one artifact, creating its directory first."""
 
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(payload, encoding="utf-8")
+    # LF on every OS: these files are hashed downstream; CRLF on Windows would change it.
+    path.write_text(payload, encoding="utf-8", newline="\n")

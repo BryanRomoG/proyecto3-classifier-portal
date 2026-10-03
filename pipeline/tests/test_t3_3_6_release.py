@@ -30,6 +30,7 @@ from dataset_quality.classifier.release import (
     fetch_package,
     package_key,
     parse_semver,
+    record_release,
     upload_package,
     verify_package,
 )
@@ -444,3 +445,90 @@ def test_cli_verify_returns_success_then_failure_on_tampering(tmp_path: Path) ->
 
     (package_dir / MODEL_FILE).write_bytes(b"tampered")
     assert cli(["release-verify", "--package-dir", str(package_dir)]) == 2
+
+
+# ------------------------------------------------- card completeness and release record
+
+
+def _write_manifest_and_requirements(tmp_path: Path) -> tuple[Path, Path]:
+    manifest = {
+        "dataset_version": "v1.0.0",
+        "proportions": {"train": 0.7, "val": 0.2, "test": 0.1},
+        "splits": [
+            {
+                "name": "train",
+                "image_ids": [1, 2, 3],
+                "crops": [{"category_name": "car"}] * 3 + [{"category_name": "person"}] * 2,
+            },
+            {"name": "val", "image_ids": [4], "crops": [{"category_name": "car"}]},
+            {"name": "test", "image_ids": [5], "crops": [{"category_name": "person"}]},
+        ],
+    }
+    manifest_path = tmp_path / "classifier_split_manifest.json"
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+    requirements = tmp_path / "requirements-train.txt"
+    lines = ["# ML extras", "torch==2.8.0", "torchvision==0.23.0", "mlflow==3.16.1", ""]
+    requirements.write_text("\n".join(lines), encoding="utf-8")
+    return manifest_path, requirements
+
+
+def test_card_and_metadata_declare_dependencies_and_the_split(tmp_path: Path) -> None:
+    manifest_path, requirements = _write_manifest_and_requirements(tmp_path)
+    checkpoint = tmp_path / "selected-model.pt"
+    checkpoint.write_bytes(b"synthetic-checkpoint-bytes")
+    sha = hashlib.sha256(checkpoint.read_bytes()).hexdigest()
+    selection_path, evaluation_path = _write_reports(tmp_path, sha)
+
+    result = build_package(
+        checkpoint=checkpoint,
+        version="v1.0.1",
+        selection_path=selection_path,
+        evaluation_path=evaluation_path,
+        output_dir=tmp_path / "release",
+        checkpoint_reader=_reader(),
+        manifest_path=manifest_path,
+        requirements_path=requirements,
+    )
+
+    package_dir = Path(result["package_dir"])
+    metadata = json.loads((package_dir / METADATA_FILE).read_text(encoding="utf-8"))
+    assert metadata["dependencies"]["torch"] == "2.8.0"
+    assert metadata["dependencies"]["torchvision"] == "0.23.0"
+    assert metadata["split"]["proportions"] == {"train": 0.7, "val": 0.2, "test": 0.1}
+    assert metadata["split"]["crops"] == {"train": 5, "val": 1, "test": 1}
+    assert metadata["split"]["by_class"]["train"] == {"car": 3, "person": 2}
+    assert metadata["split"]["source_images"] == {"train": 3, "val": 1, "test": 1}
+    card = (package_dir / MODEL_CARD_FILE).read_text(encoding="utf-8")
+    assert "torch==2.8.0" in card
+    assert "70/20/10" in card
+    assert verify_package(package_dir, expected_version="v1.0.1")["ok"] is True
+
+
+def test_record_reads_every_published_object_and_the_card(tmp_path: Path) -> None:
+    result, _ = _build(tmp_path)
+    store = FakeObjectStore()
+    upload_package(store=store, package_dir=Path(result["package_dir"]), version="v1.0.0")
+
+    record = record_release(store=store, version="v1.0.0", recorded_at="2026-10-03T00:00:00Z")
+
+    assert record["version"] == "v1.0.0"
+    assert record["bucket"] == store.bucket
+    assert set(record["objects"]) == {*PACKAGE_FILES, CHECKSUMS_FILE}
+    local = Path(result["package_dir"])
+    model = record["objects"][MODEL_FILE]
+    assert model["key"] == "t3-classifier/v1.0.0/model.pt"
+    assert model["size"] == (local / MODEL_FILE).stat().st_size
+    assert model["sha256"] == hashlib.sha256((local / MODEL_FILE).read_bytes()).hexdigest()
+    assert record["run_id"] == RUN_ID
+    assert record["card_markdown"].startswith("# Model card")
+    assert record["verified_with"] == "HeadObject"
+
+
+def test_record_refuses_a_version_that_is_not_fully_published(tmp_path: Path) -> None:
+    result, _ = _build(tmp_path)
+    store = FakeObjectStore()
+    upload_package(store=store, package_dir=Path(result["package_dir"]), version="v1.0.0")
+    del store.objects["t3-classifier/v1.0.0/model.pt"]
+
+    with pytest.raises(ReleaseError, match="not published"):
+        record_release(store=store, version="v1.0.0", recorded_at="2026-10-03T00:00:00Z")

@@ -1,15 +1,28 @@
-import { useEffect, useState } from "react";
-import { type EvaluationResponse, getEvaluation } from "@/lib/api/evaluation";
+import { useEffect, useMemo, useState } from "react";
+import {
+  apiUrl,
+  type EvaluationResponse,
+  getEvaluation,
+  getPredictions,
+  PREDICTIONS_CSV_URL,
+  type Prediction,
+} from "@/lib/api/evaluation";
 
 export function EvaluationPage() {
   const [data, setData] = useState<EvaluationResponse | null>(null);
+  const [predictions, setPredictions] = useState<Prediction[]>([]);
+  const [filter, setFilter] = useState("errors");
 
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     async function load() {
       try {
-        setData(await getEvaluation());
+        const evaluation = await getEvaluation();
+        setData(evaluation);
+        if (!evaluation.locked) {
+          setPredictions(await getPredictions());
+        }
       } catch (err) {
         setError(err instanceof Error ? err.message : "No se pudo cargar la evaluación.");
       }
@@ -17,6 +30,12 @@ export function EvaluationPage() {
 
     void load();
   }, []);
+
+  const shown = useMemo(() => {
+    if (filter === "all") return predictions;
+    if (filter === "errors") return predictions.filter((row) => !row.correct);
+    return predictions.filter((row) => row.trueLabel === filter);
+  }, [predictions, filter]);
 
   if (error) {
     return (
@@ -90,7 +109,7 @@ export function EvaluationPage() {
           <code className="mt-1 block text-xs text-ink-muted">{data.selection.runId}</code>
         </section>
 
-        <section className="grid gap-4 md:grid-cols-4">
+        <section className="grid gap-4 md:grid-cols-5">
           <Metric label="Accuracy" value={`${(evaluation.accuracy * 100).toFixed(2)}%`} />
 
           <Metric label="Macro F1" value={`${(evaluation.macro_f1 * 100).toFixed(2)}%`} />
@@ -98,6 +117,8 @@ export function EvaluationPage() {
           <Metric label="Correct" value={`${evaluation.correct}/${evaluation.total}`} />
 
           <Metric label="Dataset" value={evaluation.dataset_version} />
+
+          <Metric label="Manifiesto 70/20/10" value={`${data.manifest.sha256.slice(0, 12)}…`} />
         </section>
 
         <section className="mt-6 rounded-xl border border-border bg-surface p-5 shadow-card">
@@ -167,28 +188,105 @@ export function EvaluationPage() {
         </section>
 
         <section className="mt-6 rounded-xl border border-border bg-surface p-5 shadow-card">
-          <h2 className="mb-4 font-semibold text-ink">Test examples</h2>
+          <h2 className="mb-1 font-semibold text-ink">Ejemplos del test</h2>
+          <p className="mb-4 text-sm text-ink-muted">
+            Recortes reales del split de test: aciertos con mayor confianza y todos los errores.
+          </p>
 
           <div className="grid gap-6 md:grid-cols-2">
             {Object.entries(evaluation.examples).map(([className, examples]) => (
               <div key={className}>
-                <h3 className="mb-3 font-medium">{className}</h3>
+                <h3 className="mb-3 font-medium">Clase real: {className}</h3>
 
-                <div className="space-y-2">
-                  {examples.correct.slice(0, 5).map((example) => (
-                    <div key={example.annotation_id} className="rounded-lg bg-canvas p-3 text-sm">
-                      <div className="font-medium">{example.predicted_label}</div>
+                <p className="mb-2 text-xs font-medium uppercase text-red-700">
+                  Errores ({examples.errors.length})
+                </p>
+                <div className="mb-4 grid grid-cols-3 gap-3">
+                  {examples.errors.length === 0 && (
+                    <p className="col-span-3 text-sm text-ink-muted">Sin errores en esta clase.</p>
+                  )}
+                  {examples.errors.map((example) => (
+                    <ExampleCard key={example.annotation_id} example={example} wrong />
+                  ))}
+                </div>
 
-                      <div className="text-xs text-ink-muted">
-                        Confidence: {(example.confidence * 100).toFixed(2)}%
-                      </div>
-
-                      <div className="text-xs text-ink-faint">{example.relative_path}</div>
-                    </div>
+                <p className="mb-2 text-xs font-medium uppercase text-green-700">Aciertos</p>
+                <div className="grid grid-cols-3 gap-3">
+                  {examples.correct.slice(0, 6).map((example) => (
+                    <ExampleCard key={example.annotation_id} example={example} />
                   ))}
                 </div>
               </div>
             ))}
+          </div>
+        </section>
+
+        <section className="mt-6 rounded-xl border border-border bg-surface p-5 shadow-card">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="font-semibold text-ink">Predicciones por muestra</h2>
+              <p className="text-sm text-ink-muted">
+                Las {predictions.length} predicciones del test congelado, para auditoría.
+              </p>
+            </div>
+            <div className="flex items-center gap-3">
+              <select
+                value={filter}
+                onChange={(event) => setFilter(event.target.value)}
+                className="rounded-lg border border-border bg-surface px-3 py-2 text-sm"
+              >
+                <option value="errors">Solo errores</option>
+                <option value="all">Todas</option>
+                {evaluation.classes.map((name) => (
+                  <option key={name} value={name}>
+                    Clase real: {name}
+                  </option>
+                ))}
+              </select>
+              <a
+                href={PREDICTIONS_CSV_URL}
+                download
+                className="rounded-lg border border-border px-3 py-2 text-sm font-medium text-ink hover:bg-canvas"
+              >
+                Exportar CSV
+              </a>
+            </div>
+          </div>
+
+          <div className="max-h-96 overflow-auto">
+            <table className="w-full text-left text-sm">
+              <thead className="sticky top-0 bg-surface">
+                <tr className="border-b border-border">
+                  <th className="py-2">Recorte</th>
+                  <th>Anotación</th>
+                  <th>Real</th>
+                  <th>Predicha</th>
+                  <th>Confianza</th>
+                  <th>Resultado</th>
+                </tr>
+              </thead>
+              <tbody>
+                {shown.map((row) => (
+                  <tr key={row.annotationId} className="border-b border-border">
+                    <td className="py-2">
+                      <img
+                        src={apiUrl(row.imageUrl)}
+                        alt={`Recorte ${row.annotationId}`}
+                        className="h-12 w-12 rounded object-cover"
+                        loading="lazy"
+                      />
+                    </td>
+                    <td>{row.annotationId}</td>
+                    <td>{row.trueLabel}</td>
+                    <td>{row.predictedLabel}</td>
+                    <td>{(row.confidence * 100).toFixed(2)}%</td>
+                    <td className={row.correct ? "text-green-700" : "font-medium text-red-700"}>
+                      {row.correct ? "acierto" : "error"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </section>
       </div>
@@ -203,5 +301,40 @@ function Metric({ label, value }: { label: string; value: string }) {
 
       <strong className="mt-1 block text-xl text-ink">{value}</strong>
     </div>
+  );
+}
+
+function ExampleCard({
+  example,
+  wrong = false,
+}: {
+  example: {
+    annotation_id: number;
+    true_label: string;
+    predicted_label: string;
+    confidence: number;
+    imageUrl: string;
+  };
+  wrong?: boolean;
+}) {
+  return (
+    <figure
+      className={`overflow-hidden rounded-lg border ${wrong ? "border-red-300 bg-red-50" : "border-border bg-canvas"}`}
+    >
+      <img
+        src={apiUrl(example.imageUrl)}
+        alt={`Recorte ${example.annotation_id}`}
+        className="aspect-square w-full object-cover"
+        loading="lazy"
+      />
+      <figcaption className="p-2 text-xs">
+        <div className="font-medium">
+          Real {example.true_label} → Pred. {example.predicted_label}
+        </div>
+        <div className="text-ink-muted">
+          {(example.confidence * 100).toFixed(1)}% · #{example.annotation_id}
+        </div>
+      </figcaption>
+    </figure>
   );
 }

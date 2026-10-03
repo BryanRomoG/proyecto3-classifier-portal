@@ -16,12 +16,17 @@ import {
   getExperiment,
   getImageFile,
   getLatestTrainingRun,
+  getPredictions,
+  getPredictionsCsv,
   getQualityPolicy,
   getQualityReport,
+  getRunCurves,
   getSelectedModel,
   getSelection,
   getSplitReport,
+  getTestCropImage,
   getTrainingProvenance,
+  getTrainingReleases,
   getTrainingRun,
   getVersionHistory,
   idParamSchema,
@@ -32,6 +37,7 @@ import {
   initializeApplication,
   listExperiments,
   listModels,
+  listVersions,
   NotFoundError,
   qualityPolicyUpdateSchema,
   queueCrop,
@@ -520,6 +526,21 @@ app.post('/training/jobs', async (req, res) => {
 });
 
 /**
+ * Releases del Proyecto 2: cuál está aprobado y tiene el manifiesto 70/20/10 derivado.
+ */
+app.get('/training/releases', async (_req, res) => {
+  try {
+    res.status(200).json(await getTrainingReleases());
+  } catch (error) {
+    if (error instanceof TrainingRejectedError) {
+      res.status(error.status).json({ error: error.message });
+      return;
+    }
+    sendError(res, error, 'No se pudieron obtener los releases.');
+  }
+});
+
+/**
  * Release, compuerta de calidad y manifiesto 70/20/10 sobre los que entrena un trabajo.
  */
 app.get('/training/provenance', async (_req, res) => {
@@ -590,6 +611,21 @@ app.get('/experiments', async (_req, res) => {
   }
 });
 
+/**
+ * Curvas de train/val de una corrida, servidas por el backend desde MLflow (la URL interna
+ * mlflow:5000 no es accesible desde el navegador).
+ */
+app.get('/experiments/:runId/curves', async (req, res) => {
+  try {
+    const curves = await getRunCurves(req.params.runId);
+    res.setHeader('Content-Type', curves.contentType);
+    res.setHeader('Cache-Control', 'public, max-age=3600');
+    res.status(200).send(curves.body);
+  } catch (error) {
+    sendError(res, error, 'No se pudieron obtener las curvas.');
+  }
+});
+
 app.get('/experiments/:runId', async (req, res) => {
   try {
     const experiment = await getExperiment(req.params.runId);
@@ -614,6 +650,45 @@ app.get('/evaluation', async (_req, res) => {
   }
 });
 
+/**
+ * Predicciones por muestra del test (consulta y exportación para auditoría) y la imagen de
+ * cada recorte; bloqueadas hasta que se abre el test.
+ */
+app.get('/evaluation/predictions', async (_req, res) => {
+  try {
+    res.status(200).json({ predictions: await getPredictions() });
+  } catch (error) {
+    sendError(res, error, 'No se pudieron obtener las predicciones.');
+  }
+});
+
+app.get('/evaluation/predictions.csv', async (_req, res) => {
+  try {
+    const csv = await getPredictionsCsv();
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', 'attachment; filename="test_predictions.csv"');
+    res.status(200).send(csv);
+  } catch (error) {
+    sendError(res, error, 'No se pudo exportar el CSV de predicciones.');
+  }
+});
+
+app.get('/evaluation/crops/:annotationId', async (req, res) => {
+  const annotationId = parseIdParam(req.params.annotationId);
+  if (annotationId === null) {
+    res.status(400).json({ error: 'ID de anotación inválido.' });
+    return;
+  }
+  try {
+    const image = await getTestCropImage(annotationId);
+    res.setHeader('Content-Type', image.contentType);
+    res.setHeader('Cache-Control', 'public, max-age=3600');
+    res.status(200).send(image.body);
+  } catch (error) {
+    sendError(res, error, 'No se pudo obtener el recorte.');
+  }
+});
+
 app.get('/evaluation/selection', async (_req, res) => {
   try {
     const selection = await getSelection();
@@ -634,6 +709,17 @@ app.get('/models', async (_req, res) => {
     res.status(200).json({ models });
   } catch (error) {
     sendError(res, error, 'No se pudieron obtener los modelos.');
+  }
+});
+
+/**
+ * Versiones semánticas publicadas (registros leídos de S3), distintas de los runs de MLflow.
+ */
+app.get('/models/versions', async (_req, res) => {
+  try {
+    res.status(200).json({ versions: await listVersions() });
+  } catch (error) {
+    sendError(res, error, 'No se pudieron obtener las versiones publicadas.');
   }
 });
 

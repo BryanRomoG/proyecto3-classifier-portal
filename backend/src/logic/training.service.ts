@@ -7,6 +7,7 @@ import {
 import {
   createTrainerJob,
   getTrainerProvenance,
+  getTrainerReleases,
   type TrainerConfig,
   type TrainerFieldError,
 } from '../data/trainer.client.js';
@@ -26,6 +27,9 @@ export const trainingConfigSchema = z.object({
   imageSize: z.number(),
   hiddenLayers: z.array(z.number()),
   dropout: z.number(),
+  /** Release del Proyecto 2 elegido; el trainer lo rechaza si no está aprobado o no tiene
+   *  manifiesto derivado. */
+  datasetVersion: z.string().min(1).optional(),
 });
 
 export type TrainingConfig = z.infer<typeof trainingConfigSchema>;
@@ -73,7 +77,7 @@ export function toFormFieldErrors(errors: TrainerFieldError[]): TrainerFieldErro
 
 export async function createTrainingRun(input: TrainingConfig): Promise<number> {
   const config = trainingConfigSchema.parse(input);
-  const { status, body } = await createTrainerJob(toTrainerConfig(config));
+  const { status, body } = await createTrainerJob(toTrainerConfig(config), config.datasetVersion);
 
   if (status === 422 || status === 409 || status === 400) {
     throw new TrainingRejectedError(
@@ -124,6 +128,15 @@ export async function getTrainingProvenance() {
   const { status, body } = await getTrainerProvenance();
   if (status !== 200) {
     throw new TrainingRejectedError(body.error ?? 'Procedencia no disponible.', 409);
+  }
+  return body;
+}
+
+/** Releases del Proyecto 2 y cuál se puede usar para entrenar (aprobado y con manifiesto). */
+export async function getTrainingReleases() {
+  const { status, body } = await getTrainerReleases();
+  if (status !== 200) {
+    throw new TrainingRejectedError(body.error ?? 'Releases no disponibles.', 409);
   }
   return body;
 }

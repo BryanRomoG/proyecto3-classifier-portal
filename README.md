@@ -87,10 +87,15 @@ está en la sección del clasificador de `pipeline/README.md`.
    [Dataset real](#dataset-real-necesario-para-el-pipeline)). El script arranca
    `docker compose up -d` por su cuenta.
 
-3. **Comprobar MLflow** (desde `pipeline/`, con el stack arriba):
+3. **Generar recortes y manifiesto 70/20/10** (salidas de DVC que usan Training, Evaluation y el
+   recorrido de punta a punta):
+   `docker compose --profile pipeline run --rm pipeline sh -c "PYTHONPATH=src dvc pull -r dev && PYTHONPATH=src dvc repro"`
+   (ver [DVC](#dvc-ops-04)). El manifiesto resultante debe tener SHA-256 `39474340…`.
+
+4. **Comprobar MLflow** (desde `pipeline/`, con el stack arriba):
    `python scripts/verify_mlflow_restore.py` debe terminar con `"passes": true`.
 
-4. **Abrir el portal** en http://localhost:8080. Las páginas del clasificador se describen abajo.
+5. **Abrir el portal** en http://localhost:8080. Las páginas del clasificador se describen abajo.
 
 ## Páginas del clasificador
 
@@ -99,9 +104,9 @@ Viven en la misma Web App que las de los Proyectos 1 y 2, con su propio menú.
 | Ruta | Qué muestra | Fuente de datos |
 |---|---|---|
 | `/training` | procedencia (release, compuerta de calidad, manifiesto, conteos, test aislado), formulario de los 7 hiperparámetros con errores por campo, y el trabajo real en segundo plano, con estado, progreso, logs y run de MLflow que persisten al recargar | backend `GET /training/provenance`, `POST /training/jobs`, `GET /training/jobs/:jobId` (tabla `training_jobs`) → servicio `trainer` |
-| `/experiments` | corridas de MLflow, sus parámetros y métricas | backend `GET /experiments`, `GET /experiments/:runId` → API de MLflow |
-| `/evaluation` | candidato seleccionado, métricas finales y matriz de confusión | backend `GET /evaluation`, `GET /evaluation/selection` → `pipeline/reports/classifier/` |
-| `/models` | modelos, selección para inferencia y descarga | backend `GET /models`, `POST /models/:runId/select`, `GET /models/:runId/download` |
+| `/experiments` | las 12 corridas oficiales con su validez (10 válidas, mismas reglas que `list-runs`) y el motivo de las inválidas, los 7 hiperparámetros en columnas ordenables, filtros, comparación lado a lado y curvas de train/val | backend `GET /experiments`, `GET /experiments/:runId`, `GET /experiments/:runId/curves` → MLflow y servicio `trainer` (`GET /runs`) |
+| `/evaluation` | candidato seleccionado, versión del manifiesto, métricas finales, matriz de confusión, ejemplos con la imagen del recorte (aciertos y errores) y las predicciones por muestra con exportación a CSV; todo bloqueado hasta abrir el test | backend `GET /evaluation`, `/evaluation/predictions`, `/evaluation/predictions.csv`, `/evaluation/crops/:annotationId` → `pipeline/reports/classifier/` |
+| `/models` | versiones semánticas publicadas en S3 (objetos con `VersionId` y SHA-256, tarjeta, dependencias, fecha de verificación), aparte de los runs candidatos de MLflow; selección para inferencia y descarga | backend `GET /models/versions` (registros de `release-record` en `pipeline/reports/classifier/releases/`), `GET /models`, `POST /models/:runId/select`, `GET /models/:runId/download` |
 | `/inference` | clasificación de una imagen nueva o de un recorte anotado en el portal con el modelo elegido en Models, y envío a la cola de anotación | backend `POST /inference/image`, `/inference/crop` y sus variantes `/queue` → servicio `classifier-inference` |
 
 Un trabajo de Training lo ejecuta el servicio `trainer`
@@ -111,24 +116,18 @@ calidad distinta de `pass` o un manifiesto con fuga. Después corre
 `python -m dataset_quality.classifier train` como proceso aparte, fuera de la petición, y lo
 registra en el experimento de MLflow `t3-portal`, nunca en `t3-classifier`, para no tocar las
 10 corridas oficiales. En Docker corre en CPU: para una prueba corta basta con `Max epochs` 1
-o 2 (1 época con imagen de 96 px tardó ~1 min). Necesita memoria libre en Docker: con una VM
-de 4 GB y el stack completo arriba, el kernel mató el proceso de entrenamiento (el trabajo queda
-`failed` con `código -9`) hasta detener servicios ociosos; conviene asignar 6 GB o más a
-Docker Desktop. El servicio `classifier-api` expone las mismas reglas de validación
+o 2 (1 época con imagen de 96 px tardó ~1 min). MLflow corre sin su ejecutor de "jobs"
+(`MLFLOW_SERVER_ENABLE_JOB_EXECUTION=false`), que ocupaba ~1.3 GB sin uso: así el stack completo
+y un entrenamiento caben en una VM de Docker de 4 GB (probado). Si el kernel llegara a matar el
+proceso por memoria, el trabajo queda `failed` con `código -9` y su error. El servicio `classifier-api` expone las mismas reglas de validación
 (`GET /classifier-api/training/schema`, `POST /classifier-api/training/validate`). Los
 contratos de datos para el portal están en `docs/t3-ml-contracts.md`.
 
 ### Pendientes conocidos
 
-Estado del código a la fecha de esta revisión del README. Hay que quitar cada punto cuando se
-resuelva:
-
-- **Models:** lista las corridas de MLflow (`backend/src/logic/models.service.ts`) y usa su
-  nombre como versión; todavía no muestra la versión publicada del paquete (`v1.0.0`), su
-  tarjeta ni su estado en S3 (`docs/t3-3-6-model-release.md`).
-- **Experiments:** filtra las corridas, pero no permite ordenarlas.
-- **Evaluation:** no ofrece exportar ni consultar las predicciones por muestra
-  (`pipeline/reports/classifier/test_predictions.csv`).
+- **Versión publicada `v1.0.0`:** su tarjeta y su `metadata.json` no declaran dependencias ni el
+  split. `release-build` ya los incluye (`v1.0.1`); falta publicar esa versión en S3 y
+  registrarla con `release-record`.
 
 ---
 
@@ -149,9 +148,11 @@ las 10 corridas, selección, evaluación y verificación) está en la sección d
 | Evaluación repetida con el checkpoint, sin sobrescribir | `python -m dataset_quality.classifier evaluate --audit` |
 | Reproducibilidad de dos corridas | `python -m dataset_quality.classifier repro-check <RUN_A> <RUN_B>` |
 | Prueba de mutación en una copia aislada | `python scripts/classifier_mutation_check.py` |
+| Recorrido de punta a punta por el portal (release → trabajo → run → evaluación → publicación de prueba en MinIO → inferencia) | `python scripts/e2e_portal_smoke.py --portal http://localhost:8080/api` (o `E2E_PORTAL_URL=http://localhost:8080/api python -m pytest tests/test_e2e_portal.py`) |
+| Registro de una versión publicada, leído de S3 (`HeadObject`) | `python -m dataset_quality.classifier release-record --version v1.0.0 --bucket dataset-releases-prod-685538571046` |
 
-`list-runs`, `audit-selection`, `audit-test`, `evaluate --audit`, `repro-check` y la prueba
-de mutación salen con código distinto de 0 si su comprobación falla; `recompute` solo imprime
+`list-runs`, `audit-selection`, `audit-test`, `evaluate --audit`, `repro-check`, la prueba
+de mutación y el recorrido de punta a punta salen con código distinto de 0 si su comprobación falla; `recompute` solo imprime
 las métricas recalculadas. Las salidas de referencia están commiteadas en
 `pipeline/reports/classifier/`.
 
@@ -159,8 +160,10 @@ las métricas recalculadas. Las salidas de referencia están commiteadas en
 
 - GitHub Actions (`.github/workflows/pipeline-ci.yml`): `ruff check`, `ruff format --check` y
   `pytest` del pipeline, sin `continue-on-error`.
-- Backend y frontend: `npm run lint` (Biome), `npm run typecheck` y `npm test` dentro de
-  `backend/` o `frontend/`. Hoy no corren en CI.
+- GitHub Actions (`.github/workflows/portal-ci.yml`): para `backend/` y `frontend/`,
+  `npm ci`, Biome, `typecheck`, `npm test` y build. Ningún paso puede fallar sin tumbar el job.
+- El recorrido de punta a punta necesita el stack arriba; su última salida está en
+  `pipeline/reports/classifier/e2e_portal_smoke.json`.
 
 ---
 

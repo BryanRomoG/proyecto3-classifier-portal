@@ -45,3 +45,38 @@ export async function selectModel(runId: string) {
 export async function getSelectedModel() {
   return apiRequest("/models/selected", selectedModelSchema);
 }
+
+const versionSchema = z.object({
+  version: z.string(),
+  runId: z.string(),
+  runName: z.string().nullable(),
+  checkpointSha256: z.string().nullable(),
+  datasetVersion: z.string().nullable(),
+  manifestSha256: z.string().nullable(),
+  testMetrics: z.record(z.string(), z.number().nullable()).nullable(),
+  dependencies: z.record(z.string(), z.string()).nullable(),
+  split: z.unknown().nullable(),
+  published: z.boolean(),
+  bucket: z.string().nullable(),
+  s3Uri: z.string(),
+  objects: z.array(
+    z.object({
+      name: z.string(),
+      key: z.string(),
+      size: z.number(),
+      versionId: z.string().nullable(),
+      sha256: z.string().nullable(),
+    })
+  ),
+  cardMarkdown: z.string(),
+  recordedAt: z.string(),
+  verifiedWith: z.string(),
+  selected: z.boolean(),
+});
+
+export type ModelVersion = z.infer<typeof versionSchema>;
+
+/** Versiones semánticas publicadas en S3 (registros leídos con HeadObject). */
+export async function getVersions() {
+  return apiRequest("/models/versions", z.object({ versions: z.array(versionSchema) }));
+}

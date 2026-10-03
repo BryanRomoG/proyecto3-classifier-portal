@@ -12,6 +12,10 @@ Runs in the ``trainer`` Compose service, on the same torch image as ``classifier
   Only then is a job created: ``python -m dataset_quality.classifier train`` runs as a child
   process, outside the HTTP request, logging to the ``t3-portal`` MLflow experiment -- never
   to ``t3-classifier``, whose 10 official runs must not change.
+* ``GET  /releases`` -- Project 2 releases and whether each is approved and has the derived
+  manifest; ``POST /jobs`` may name one in ``dataset_version`` and is refused (409) otherwise.
+* ``GET  /runs`` -- validity of the official ``t3-classifier`` runs (same rules as
+  ``list-runs``), so the portal can tell the 10 valid runs from the rest.
 * ``GET  /jobs/{job_id}`` -- state, epoch, progress, last metrics, MLflow run ID, error and
   log tail, rebuilt from files (``job.json`` and the trainer's own ``status.json``), so it
   survives a page reload and a service restart.
@@ -43,6 +47,7 @@ from starlette.routing import Route
 from dataset_quality.classifier.config import TrainingConfig, validation_issues
 
 PORTAL_EXPERIMENT = "t3-portal"
+OFFICIAL_EXPERIMENT = "t3-classifier"
 LOG_TAIL_LINES = 80
 # Identifies this service process. A job without an exit code that belongs to another
 # instance was interrupted: restarting the service (its container) also ends its children.
@@ -116,19 +121,95 @@ def provenance(settings: Settings) -> dict[str, Any]:
     }
 
 
-def preflight_errors(settings: Settings) -> list[str]:
-    """Why a job must not start: unsafe manifest or a quality gate that is not ``pass``."""
+def releases(settings: Settings) -> dict[str, Any]:
+    """Project 2 releases (``data/interim/versions.json``) and which one a job can train on.
+
+    A release is trainable only if its quality gate passed and the 70/20/10 manifest on disk
+    was derived from it: the classifier never trains on a release it has no split for.
+    """
+
+    history_path = settings.pipeline_root / "data/interim/versions.json"
+    history = json.loads(history_path.read_text(encoding="utf-8")) if history_path.is_file() else {}
+    try:
+        manifest_version = provenance(settings)["dataset_version"]
+    except Exception:
+        manifest_version = None
+    listed = []
+    for entry in history.get("versions", []):
+        approved = entry.get("quality_status") == "pass"
+        has_manifest = entry.get("version") == manifest_version
+        listed.append(
+            {
+                "version": entry.get("version"),
+                "quality_status": entry.get("quality_status"),
+                "content_hash": entry.get("content_hash"),
+                "released_at": entry.get("released_at"),
+                "approved": approved,
+                "has_manifest": has_manifest,
+                "trainable": approved and has_manifest,
+            }
+        )
+    return {
+        "current_version": history.get("current_version"),
+        "manifest_dataset_version": manifest_version,
+        "releases": listed,
+    }
+
+
+def preflight_errors(settings: Settings, dataset_version: str | None = None) -> list[str]:
+    """Why a job must not start: wrong release, unsafe manifest or a gate that is not pass."""
 
     try:
         info = provenance(settings)
     except Exception as error:  # missing file, leakage, unreadable manifest
         return [f"manifest no utilizable: {error}"]
+    if dataset_version is not None:
+        known = {r["version"]: r for r in releases(settings)["releases"]}
+        release = known.get(dataset_version)
+        if release is None:
+            return [f"el release {dataset_version} no existe en el historial del Proyecto 2"]
+        if not release["approved"]:
+            return [
+                f"el release {dataset_version} no está aprobado "
+                f"(compuerta {release['quality_status']!r})"
+            ]
+        if not release["has_manifest"]:
+            return [
+                f"el release {dataset_version} no tiene un manifiesto 70/20/10 derivado "
+                f"(el manifiesto actual es de {info['dataset_version']})"
+            ]
     if info["quality_gate_status"] != "pass":
         return [
             f"la compuerta de calidad del release {info['dataset_version']} es "
             f"{info['quality_gate_status']!r}, no 'pass'"
         ]
     return []
+
+
+def official_runs(settings: Settings) -> dict[str, Any]:
+    """Validity of the official runs, by the same rules as ``list-runs`` (``valid_runs``)."""
+
+    from mlflow.tracking import MlflowClient
+
+    from dataset_quality.classifier.experiments import valid_runs
+
+    info = provenance(settings)
+    rows = valid_runs(MlflowClient(), OFFICIAL_EXPERIMENT, info["manifest_sha256"], info["classes"])
+    return {
+        "experiment": OFFICIAL_EXPERIMENT,
+        "manifest_sha256": info["manifest_sha256"],
+        "valid_runs": sum(row["valid"] for row in rows),
+        "runs": [
+            {
+                "run_id": row["run_id"],
+                "run_name": row["run_name"],
+                "status": row["status"],
+                "valid": row["valid"],
+                "invalid_reasons": row["invalid_reasons"],
+            }
+            for row in rows
+        ],
+    }
 
 
 def _find_status(job_dir: Path) -> dict[str, Any] | None:
@@ -276,11 +357,21 @@ def build_app(settings: Settings | None = None) -> Starlette:
         issues = validation_issues(payload)
         if issues:
             return _json_error(422, "Configuración de entrenamiento inválida.", errors=issues)
-        problems = preflight_errors(settings)
+        dataset_version = body.get("dataset_version")
+        problems = preflight_errors(settings, dataset_version)
         if problems:
             return _json_error(409, "; ".join(problems))
         job_id = start_job(settings, store, TrainingConfig.model_validate(payload))
         return JSONResponse(job_view(store, job_id), status_code=202)
+
+    async def get_releases(_request: Request) -> JSONResponse:
+        return JSONResponse(releases(settings))
+
+    async def get_runs(_request: Request) -> JSONResponse:
+        try:
+            return JSONResponse(official_runs(settings))
+        except Exception as error:
+            return _json_error(503, f"no se pudieron leer las corridas: {error}")
 
     async def get_job(request: Request) -> JSONResponse:
         view = job_view(store, request.path_params["job_id"])
@@ -292,6 +383,8 @@ def build_app(settings: Settings | None = None) -> Starlette:
         routes=[
             Route("/health", health, methods=["GET"]),
             Route("/provenance", get_provenance, methods=["GET"]),
+            Route("/releases", get_releases, methods=["GET"]),
+            Route("/runs", get_runs, methods=["GET"]),
             Route("/jobs", create_job, methods=["POST"]),
             Route("/jobs/{job_id}", get_job, methods=["GET"]),
         ]

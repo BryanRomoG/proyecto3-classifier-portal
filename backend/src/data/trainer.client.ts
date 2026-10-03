@@ -70,11 +70,11 @@ async function trainerRequest<T>(path: string, init?: RequestInit): Promise<Trai
   return { status: response.status, body };
 }
 
-export function createTrainerJob(config: TrainerConfig) {
+export function createTrainerJob(config: TrainerConfig, datasetVersion?: string) {
   return trainerRequest<TrainerJobView>('/jobs', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ config }),
+    body: JSON.stringify({ config, dataset_version: datasetVersion }),
   });
 }
 
@@ -84,4 +84,43 @@ export function getTrainerJob(jobId: string) {
 
 export function getTrainerProvenance() {
   return trainerRequest<TrainerProvenance>('/provenance');
+}
+
+export interface TrainerRunValidity {
+  run_id: string;
+  run_name: string;
+  status: string;
+  valid: boolean;
+  invalid_reasons: string[];
+}
+
+export interface TrainerRuns {
+  experiment: string;
+  manifest_sha256: string;
+  valid_runs: number;
+  runs: TrainerRunValidity[];
+}
+
+export interface TrainerRelease {
+  version: string;
+  quality_status: string;
+  content_hash: string | null;
+  released_at: string | null;
+  approved: boolean;
+  has_manifest: boolean;
+  trainable: boolean;
+}
+
+export interface TrainerReleases {
+  current_version: string | null;
+  manifest_dataset_version: string | null;
+  releases: TrainerRelease[];
+}
+
+export function getTrainerRuns() {
+  return trainerRequest<TrainerRuns>('/runs');
+}
+
+export function getTrainerReleases() {
+  return trainerRequest<TrainerReleases>('/releases');
 }

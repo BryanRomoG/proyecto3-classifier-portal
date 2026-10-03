@@ -44,10 +44,14 @@ export { getDashboardSummary } from './dashboard.service.js';
 export { NotFoundError, ValidationError } from './errors.js';
 export {
   getEvaluation,
+  getPredictions,
+  getPredictionsCsv,
   getSelection,
+  getTestCropImage,
 } from './evaluation.service.js';
 export {
   getExperiment,
+  getRunCurves,
   listExperiments,
 } from './experiments.service.js';
 export type { HealthStatus } from './health.service.js';
@@ -70,6 +74,7 @@ export {
   downloadSelectedModel,
   getSelectedModel,
   listModels,
+  listVersions,
   selectModel,
 } from './models.service.js';
 // Contratos de Data Quality: solo lectura (SPEC-PIPE-001)
@@ -99,6 +104,7 @@ export {
   createTrainingRun,
   getLatestTrainingRun,
   getTrainingProvenance,
+  getTrainingReleases,
   getTrainingRun,
   TrainingRejectedError,
   trainingConfigSchema,

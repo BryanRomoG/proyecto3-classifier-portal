@@ -33,7 +33,8 @@ def main() -> None:
 
     payload = result.manifest.model_dump_json(indent=2)
     args.output.parent.mkdir(parents=True, exist_ok=True)
-    args.output.write_text(payload, encoding="utf-8")
+    # LF on every OS: the manifest is identified by its SHA-256, which must not depend on it.
+    args.output.write_text(payload, encoding="utf-8", newline="\n")
     print(payload)
 
 
