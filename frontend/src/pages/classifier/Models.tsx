@@ -1,14 +1,13 @@
-
 const models = [
   {
-    name: "cat-dog-classifier",
+    name: "car-person-classifier",
     version: "v1.0.0",
     accuracy: "91.4%",
     status: "Archived",
     date: "2026-09-24",
   },
   {
-    name: "cat-dog-classifier",
+    name: "car-person-classifier",
     version: "v1.1.0",
     accuracy: "93.1%",
     status: "Production",
@@ -16,7 +15,7 @@ const models = [
   },
 ];
 
-export default function Models() {
+export function Models() {
   return (
     <section>
       <div className="page-header">
@@ -47,9 +46,7 @@ export default function Models() {
                 <td>{model.version}</td>
                 <td>{model.accuracy}</td>
                 <td>
-                  <span className="status-badge">
-                    {model.status}
-                  </span>
+                  <span className="status-badge">{model.status}</span>
                 </td>
                 <td>{model.date}</td>
               </tr>

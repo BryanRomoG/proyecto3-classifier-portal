@@ -1,20 +1,19 @@
-
 const classMetrics = [
   {
-    className: "Cat",
+    className: "Car",
     precision: "93.2%",
     recall: "91.8%",
     f1: "92.5%",
   },
   {
-    className: "Dog",
+    className: "Person",
     precision: "92.7%",
     recall: "94.1%",
     f1: "93.4%",
   },
 ];
 
-export default function Evaluation() {
+export function Evaluation() {
   return (
     <section>
       <div className="page-header">
@@ -81,16 +80,16 @@ export default function Evaluation() {
           <tbody>
             <tr>
               <th></th>
-              <th>Pred. Cat</th>
-              <th>Pred. Dog</th>
+              <th>Pred. Car</th>
+              <th>Pred. Person</th>
             </tr>
             <tr>
-              <th>Real Cat</th>
+              <th>Real Car</th>
               <td>184</td>
               <td>16</td>
             </tr>
             <tr>
-              <th>Real Dog</th>
+              <th>Real Person</th>
               <td>12</td>
               <td>188</td>
             </tr>
@@ -100,4 +99,3 @@ export default function Evaluation() {
     </section>
   );
 }
-

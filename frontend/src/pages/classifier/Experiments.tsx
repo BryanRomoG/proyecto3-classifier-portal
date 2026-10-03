@@ -1,4 +1,3 @@
-
 const experiments = [
   {
     id: "EXP-001",
@@ -26,7 +25,7 @@ const experiments = [
   },
 ];
 
-export default function Experiments() {
+export function Experiments() {
   return (
     <section>
       <div className="page-header">
@@ -60,9 +59,7 @@ export default function Experiments() {
                 <td>{experiment.accuracy}</td>
                 <td>{experiment.loss}</td>
                 <td>
-                  <span className="status-badge">
-                    {experiment.status}
-                  </span>
+                  <span className="status-badge">{experiment.status}</span>
                 </td>
               </tr>
             ))}
@@ -72,4 +69,3 @@ export default function Experiments() {
     </section>
   );
 }
-

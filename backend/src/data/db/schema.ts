@@ -209,6 +209,76 @@ export const annotationsRelations = relations(annotations, ({ one }) => ({
   }),
 }));
 
+export const trainingJobs = mysqlTable(
+  'training_jobs',
+  {
+    id: bigint('id', {
+      mode: 'number',
+      unsigned: true,
+    })
+      .autoincrement()
+      .primaryKey(),
+
+    status: mysqlEnum('status', [
+      'queued',
+      'running',
+      'completed',
+      'failed',
+    ])
+      .notNull()
+      .default('queued'),
+
+    optimizer: varchar('optimizer', {
+      length: 50,
+    }).notNull(),
+
+    batchSize: int('batch_size', {
+      unsigned: true,
+    }).notNull(),
+
+    epochs: int('epochs', {
+      unsigned: true,
+    }).notNull(),
+
+    learningRate: double('learning_rate').notNull(),
+
+    imageSize: int('image_size', {
+      unsigned: true,
+    }).notNull(),
+
+    dropout: double('dropout').notNull(),
+
+    currentEpoch: int('current_epoch', {
+      unsigned: true,
+    })
+      .notNull()
+      .default(0),
+
+    progress: double('progress').notNull().default(0),
+
+    logs: varchar('logs', {
+      length: 16000,
+    })
+      .notNull()
+      .default(''),
+
+    errorMessage: varchar('error_message', {
+      length: 2000,
+    }),
+
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+
+    startedAt: timestamp('started_at'),
+
+    finishedAt: timestamp('finished_at'),
+  },
+
+  (table) => [
+    index('training_jobs_status_idx').on(table.status),
+    index('training_jobs_created_at_idx').on(table.createdAt),
+  ],
+);
+
 /**
  * Tipos TypeScript generados automáticamente desde el esquema.
  */
@@ -220,3 +290,6 @@ export type NewCategory = typeof categories.$inferInsert;
 
 export type Annotation = typeof annotations.$inferSelect;
 export type NewAnnotation = typeof annotations.$inferInsert;
+
+export type TrainingJob = typeof trainingJobs.$inferSelect;
+export type NewTrainingJob = typeof trainingJobs.$inferInsert;

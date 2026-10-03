@@ -1,8 +1,7 @@
-
 import { Outlet } from "react-router-dom";
-import ClassifierNav from "./ClassifierNav";
+import { ClassifierNav } from "./ClassifierNav";
 
-export default function ClassifierAppLayout() {
+export function ClassifierAppLayout() {
   return (
     <div className="classifier-app">
       <header className="classifier-header">
@@ -20,4 +19,3 @@ export default function ClassifierAppLayout() {
     </div>
   );
 }
-

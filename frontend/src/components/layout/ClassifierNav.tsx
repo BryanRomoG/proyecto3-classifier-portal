@@ -1,4 +1,3 @@
-
 import { NavLink } from "react-router-dom";
 
 const links = [
@@ -9,7 +8,7 @@ const links = [
   { label: "Inference", path: "/inference" },
 ];
 
-export default function ClassifierNav() {
+export function ClassifierNav() {
   return (
     <nav className="classifier-nav">
       {links.map((link) => (
@@ -26,4 +25,3 @@ export default function ClassifierNav() {
     </nav>
   );
 }
-

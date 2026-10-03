@@ -1,7 +1,6 @@
-
 import { useState } from "react";
 
-export default function Inference() {
+export function Inference() {
   const [fileName, setFileName] = useState("");
 
   return (
@@ -46,16 +45,15 @@ export default function Inference() {
 
         <div className="inference-result">
           <span>Predicción</span>
-          <strong>Dog</strong>
+          <strong>Person</strong>
 
           <span>Confidence</span>
           <strong>96.8%</strong>
 
           <span>Modelo</span>
-          <strong>cat-dog-classifier v1.1.0</strong>
+          <strong>car-person-classifier v1.1.0</strong>
         </div>
       </div>
     </section>
   );
 }
-
