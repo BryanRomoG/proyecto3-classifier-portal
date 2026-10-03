@@ -290,6 +290,14 @@ services:
       # escritura (a diferencia del `:ro` de `backend`/`copilot`): este es
       # el único servicio que de verdad produce estos archivos.
       - ./pipeline/data:/app/data
+      # DVC actualiza el lock cuando reproduce salidas nuevas. Sin este bind
+      # mount, el cambio queda en el contenedor --rm y cada ejecución siguiente
+      # vuelve a correr todo el DAG aunque los datos no hayan cambiado.
+      - ./pipeline/dvc.lock:/app/dvc.lock
+      # El contenedor se elimina con `run --rm`; conservar la caché en el host
+      # permite que DVC reconozca las salidas ya calculadas y omita las ocho
+      # etapas cuando sus dependencias no cambiaron.
+      - ./pipeline/.dvc/cache:/app/.dvc/cache
 
 volumes:
   mariadb_data:
