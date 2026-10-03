@@ -425,6 +425,85 @@ app.use(
   },
 );
 
+app.post('/training/jobs', async (req, res) => {
+  const parsed = trainingConfigSchema.safeParse(req.body);
+
+  if (!parsed.success) {
+    res.status(400).json({
+      error:
+        parsed.error.issues[0]?.message ??
+        'Configuración de entrenamiento inválida.',
+    });
+    return;
+  }
+
+  try {
+    const jobId = await createTrainingRun(parsed.data);
+
+    res.status(202).json({
+      id: jobId,
+      status: 'queued',
+    });
+  } catch (error) {
+    sendError(
+      res,
+      error,
+      'No se pudo crear el entrenamiento.',
+    );
+  }
+});
+
+app.get('/training/jobs/latest', async (_req, res) => {
+  try {
+    const job = await getLatestTrainingRun();
+
+    if (!job) {
+      res.status(404).json({
+        error: 'No existe ningún entrenamiento.',
+      });
+      return;
+    }
+
+    res.status(200).json(job);
+  } catch (error) {
+    sendError(
+      res,
+      error,
+      'No se pudo obtener el entrenamiento.',
+    );
+  }
+});
+
+app.get('/training/jobs/:jobId', async (req, res) => {
+  const jobId = Number(req.params.jobId);
+
+  if (!Number.isInteger(jobId) || jobId <= 0) {
+    res.status(400).json({
+      error: 'ID de entrenamiento inválido.',
+    });
+    return;
+  }
+
+  try {
+    const job = await getTrainingRun(jobId);
+
+    if (!job) {
+      res.status(404).json({
+        error: 'Entrenamiento no encontrado.',
+      });
+      return;
+    }
+
+    res.status(200).json(job);
+  } catch (error) {
+    sendError(
+      res,
+      error,
+      'No se pudo obtener el entrenamiento.',
+    );
+  }
+});
+
 /**
  * Inicializa los servicios necesarios antes de levantar el servidor.
  */
