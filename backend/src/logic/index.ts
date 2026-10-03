@@ -73,6 +73,15 @@ export { applyQualityPolicyUpdate } from './quality-policy.builder.js';
 export { getQualityPolicy, updateQualityPolicy } from './quality-policy.service.js';
 export type { QualityPolicyUpdateBody } from './quality-policy.validation.js';
 export { qualityPolicyUpdateSchema } from './quality-policy.validation.js';
+
+export {
+  createTrainingRun,
+  getLatestTrainingRun,
+  getTrainingRun,
+  trainingConfigSchema,
+} from './training.service.js';
+
+export type { TrainingConfig } from './training.service.js';
 // Parser de operadores de búsqueda (SPEC-SEARCH-001)
 export type { ParsedSearchQuery, SearchOperator } from './search-query.parser.js';
 export { parseSearchQuery } from './search-query.parser.js';
