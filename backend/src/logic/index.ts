@@ -77,3 +77,20 @@ export { qualityPolicyUpdateSchema } from './quality-policy.validation.js';
 export type { ParsedSearchQuery, SearchOperator } from './search-query.parser.js';
 export { parseSearchQuery } from './search-query.parser.js';
 export { initializeApplication } from './startup.service.js';
+
+export {
+  getExperiment,
+  listExperiments,
+} from "./experiments.service.js";
+
+export {
+  getEvaluation,
+  getSelection,
+} from "./evaluation.service.js";
+
+export {
+  downloadSelectedModel,
+  getSelectedModel,
+  listModels,
+  selectModel,
+} from "./models.service.js";
