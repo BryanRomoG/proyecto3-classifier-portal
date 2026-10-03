@@ -1,6 +1,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 
+import { env } from '../config/env.js';
 import {
   getArtifact,
   getArtifactUrl,
@@ -8,9 +9,7 @@ import {
   getClassifierRuns,
 } from '../data/mlflow.client.js';
 
-const REPORTS_DIR = path.resolve(process.cwd(), '../pipeline/reports/classifier');
-
-const SELECTED_MODEL_FILE = path.join(REPORTS_DIR, 'selected-model.json');
+const SELECTED_MODEL_FILE = path.resolve(process.cwd(), env.SELECTED_MODEL_PATH);
 
 interface SelectedModel {
   runId: string;
@@ -28,6 +27,7 @@ async function readSelectedModel(): Promise<SelectedModel | null> {
 }
 
 async function writeSelectedModel(model: SelectedModel): Promise<void> {
+  await fs.mkdir(path.dirname(SELECTED_MODEL_FILE), { recursive: true });
   await fs.writeFile(SELECTED_MODEL_FILE, JSON.stringify(model, null, 2), 'utf8');
 }
 

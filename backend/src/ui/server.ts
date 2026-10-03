@@ -25,11 +25,16 @@ import {
   getVersionHistory,
   idParamSchema,
   imageSearchSchema,
+  inferCrop,
+  inferenceCropSchema,
+  inferImage,
   initializeApplication,
   listExperiments,
   listModels,
   NotFoundError,
   qualityPolicyUpdateSchema,
+  queueCrop,
+  queueImage,
   searchImages,
   selectModel,
   setImageStatus,
@@ -132,6 +137,76 @@ app.post('/images', upload.single('image'), async (req, res) => {
     res.status(201).json(image);
   } catch (error) {
     sendError(res, error, 'Error desconocido al cargar la imagen.');
+  }
+});
+
+function inferenceFileFromRequest(file: Express.Multer.File) {
+  return {
+    filename: file.originalname,
+    mimeType: file.mimetype,
+    sizeBytes: file.size,
+    buffer: file.buffer,
+  };
+}
+
+/** T3-4.1 — inferencia con bytes enviados por el usuario. */
+app.post('/inference/image', upload.single('file'), async (req, res) => {
+  if (!req.file) {
+    res.status(400).json({ error: 'Debe enviarse una imagen en el campo file.' });
+    return;
+  }
+
+  try {
+    res.status(200).json(await inferImage(inferenceFileFromRequest(req.file)));
+  } catch (error) {
+    sendError(res, error, 'No se pudo ejecutar la inferencia.');
+  }
+});
+
+/** T3-4.1 — inferencia sobre los bytes reales del recorte de una anotación. */
+app.post('/inference/crop', async (req, res) => {
+  const parsed = inferenceCropSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: 'annotationId debe ser un entero positivo.' });
+    return;
+  }
+
+  try {
+    res.status(200).json(await inferCrop(parsed.data.annotationId));
+  } catch (error) {
+    sendError(res, error, 'No se pudo ejecutar la inferencia del recorte.');
+  }
+});
+
+/**
+ * Ejecuta la inferencia y crea un elemento real en la cola de anotación.
+ * `queueImage` reutiliza `uploadImage`: persiste los mismos bytes en MinIO y
+ * los metadatos en MariaDB, con status `pending`.
+ */
+app.post('/inference/image/queue', upload.single('file'), async (req, res) => {
+  if (!req.file) {
+    res.status(400).json({ error: 'Debe enviarse una imagen en el campo file.' });
+    return;
+  }
+
+  try {
+    res.status(201).json(await queueImage(inferenceFileFromRequest(req.file)));
+  } catch (error) {
+    sendError(res, error, 'No se pudo enviar la imagen a la cola.');
+  }
+});
+
+app.post('/inference/crop/queue', async (req, res) => {
+  const parsed = inferenceCropSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: 'annotationId debe ser un entero positivo.' });
+    return;
+  }
+
+  try {
+    res.status(201).json(await queueCrop(parsed.data.annotationId));
+  } catch (error) {
+    sendError(res, error, 'No se pudo enviar el recorte a la cola.');
   }
 });
 

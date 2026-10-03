@@ -32,6 +32,19 @@ const envSchema = z.object({
     .positive()
     .default(5 * 1024 * 1024),
 
+  // Servicio Python interno. La URL nunca se recibe desde una solicitud HTTP:
+  // se fija al desplegar el backend para evitar convertir la inferencia en un
+  // proxy hacia destinos elegidos por el cliente.
+  CLASSIFIER_INFERENCE_URL: z.string().url().default('http://localhost:8300'),
+
+  CLASSIFIER_INFERENCE_TIMEOUT_MS: z.coerce.number().int().positive().default(30_000),
+
+  // Archivo compartido que fija el modelo elegido desde la página Models.
+  SELECTED_MODEL_PATH: z
+    .string()
+    .min(1)
+    .default('../pipeline/reports/classifier/selected-model.json'),
+
   // SPEC-PIPE-001 — dónde vive la salida REAL de la pipeline de Data Quality
   // (quality.json, splits.json, versions.json) y el `quality.yaml` que esa
   // misma pipeline lee en cada corrida.

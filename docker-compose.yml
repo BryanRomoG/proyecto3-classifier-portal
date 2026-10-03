@@ -33,6 +33,10 @@ services:
         condition: service_healthy
       minio:
         condition: service_started
+      mlflow:
+        condition: service_started
+      classifier-inference:
+        condition: service_started
     environment:
       NODE_ENV: production
       PORT: 3100
@@ -49,6 +53,10 @@ services:
       MINIO_SECRET_KEY: minioadmin
       MINIO_BUCKET: image-annotations
       MAX_UPLOAD_SIZE_BYTES: 5242880
+      MLFLOW_TRACKING_URI: http://mlflow:5000
+      CLASSIFIER_INFERENCE_URL: http://classifier-inference:8300
+      CLASSIFIER_INFERENCE_TIMEOUT_MS: 30000
+      SELECTED_MODEL_PATH: /pipeline/reports/classifier/selected-model.json
       # SPEC-PIPE-001 (APP-07) — dónde el backend lee/escribe las salidas de
       # la pipeline de Data Quality, montadas abajo desde la raíz del repo.
       #
@@ -67,6 +75,8 @@ services:
       # es el mismo archivo que `dataset_quality.quality_gate.runner` lee en
       # la siguiente corrida — no hay ninguna otra copia de por medio.
       - ./pipeline/quality.yaml:/data/quality.yaml
+      # Lectura + escritura: Models persiste aquí el run que Inference debe usar.
+      - ./pipeline/reports/classifier:/pipeline/reports/classifier
     ports:
       - "3100:3100"
     restart: on-failure:5
@@ -119,6 +129,26 @@ services:
     command: ["python", "-m", "dataset_quality.classifier", "serve", "--port", "8200"]
     ports:
       - "8200:8200"
+    restart: on-failure:5
+
+  # T3-4.1: private inference API. This image deliberately installs the classifier extras
+  # from requirements-train.txt; the lightweight training-config API above does not.
+  # The backend supplies the chosen runId; model.pt is fetched only through MLflow and its
+  # training-time SHA-256 is verified. No host port or checkpoint URL/path is exposed.
+  classifier-inference:
+    build:
+      context: ./pipeline
+      dockerfile: Dockerfile.inference
+    environment:
+      MLFLOW_TRACKING_URI: http://mlflow:5000
+      CLASSIFIER_INFERENCE_CACHE: /app/.inference-cache
+      CLASSIFIER_INFERENCE_PORT: 8300
+    tmpfs:
+      - /app/.inference-cache:size=256m,uid=1000,gid=1000
+    expose:
+      - "8300"
+    depends_on:
+      - mlflow
     restart: on-failure:5
 
   # MLflow tracking server (T3-3.1): the 10 classifier runs, their per-epoch metrics and
