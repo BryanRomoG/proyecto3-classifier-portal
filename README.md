@@ -125,9 +125,9 @@ contratos de datos para el portal están en `docs/t3-ml-contracts.md`.
 
 ### Pendientes conocidos
 
-- **Versión publicada `v1.0.0`:** su tarjeta y su `metadata.json` no declaran dependencias ni el
-  split. `release-build` ya los incluye (`v1.0.1`); falta publicar esa versión en S3 y
-  registrarla con `release-record`.
+Ninguno conocido a la fecha de esta revisión del README. Versiones publicadas: `v1.0.0` y
+`v1.0.1` (misma red, `model.pt` `fe1c2370…`; la `v1.0.1` declara además dependencias y split),
+con sus registros en `pipeline/reports/classifier/releases/`.
 
 ---
 
