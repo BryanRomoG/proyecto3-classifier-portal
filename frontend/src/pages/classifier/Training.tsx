@@ -5,8 +5,10 @@ import {
   getLatestTrainingJob,
   getTrainingJob,
   getTrainingProvenance,
+  getTrainingReleases,
   type TrainingJob,
   type TrainingProvenance,
+  type TrainingReleases,
 } from "@/api/training";
 
 // Valores por defecto del entrenador (pipeline/src/dataset_quality/classifier/config.py).
@@ -38,6 +40,27 @@ export function TrainingPage() {
   const [fieldErrors, setFieldErrors] = useState<ApiFieldError[]>([]);
   const [provenance, setProvenance] = useState<TrainingProvenance | null>(null);
   const [provenanceError, setProvenanceError] = useState<string | null>(null);
+  const [releases, setReleases] = useState<TrainingReleases | null>(null);
+  const [datasetVersion, setDatasetVersion] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+
+    getTrainingReleases()
+      .then((info) => {
+        if (cancelled) return;
+        setReleases(info);
+        const trainable = info.releases.find((release) => release.trainable);
+        setDatasetVersion(trainable?.version ?? info.releases[0]?.version ?? "");
+      })
+      .catch(() => {
+        // Sin historial de releases: se entrena sobre el manifiesto (la procedencia lo muestra).
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -121,6 +144,7 @@ export function TrainingPage() {
       const response = await createTrainingJob({
         ...config,
         hiddenLayers: parseHiddenLayers(config.hiddenLayers),
+        ...(datasetVersion ? { datasetVersion } : {}),
       });
 
       const createdJob = await getTrainingJob(response.id);
@@ -142,7 +166,11 @@ export function TrainingPage() {
   }
 
   const isRunning = job?.status === "queued" || job?.status === "running";
-  const gateOpen = provenance?.quality_gate_status === "pass" && provenance.test_isolated;
+  const selectedRelease = releases?.releases.find((release) => release.version === datasetVersion);
+  const gateOpen =
+    provenance?.quality_gate_status === "pass" &&
+    provenance.test_isolated &&
+    (selectedRelease === undefined || selectedRelease.trainable);
   const errorFor = (field: string) =>
     fieldErrors
       .filter((item) => item.field === field || item.field.startsWith(`${field}.`))
@@ -167,6 +195,28 @@ export function TrainingPage() {
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
+            {releases && (
+              <Field label="Release del Proyecto 2" error={errorFor("datasetVersion")}>
+                <select
+                  value={datasetVersion}
+                  disabled={isRunning}
+                  onChange={(event) => setDatasetVersion(event.target.value)}
+                  className="rounded-lg border border-border bg-surface px-3 py-2 text-sm text-ink"
+                >
+                  {releases.releases.map((release) => (
+                    <option key={release.version} value={release.version}>
+                      {release.version} · gate {release.quality_status}
+                      {release.trainable
+                        ? " · aprobado"
+                        : release.approved
+                          ? " · sin manifiesto 70/20/10"
+                          : " · no aprobado"}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+            )}
+
             <Field label="Optimizer" error={errorFor("optimizer")}>
               <select
                 value={config.optimizer}
@@ -346,8 +396,8 @@ export function TrainingPage() {
 
           {provenance && !gateOpen && (
             <p className="mt-3 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-              No se puede entrenar: la compuerta de calidad no está en pass o el test no está
-              aislado.
+              No se puede entrenar: el release elegido no está aprobado o no tiene manifiesto
+              70/20/10, la compuerta de calidad no está en pass, o el test no está aislado.
             </p>
           )}
 

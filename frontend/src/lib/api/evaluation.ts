@@ -43,6 +43,7 @@ const ExampleSchema = z.object({
   relative_path: z.string(),
   source_image_id: z.number(),
   true_label: z.string(),
+  imageUrl: z.string(),
 });
 
 const ClassExamplesSchema = z.object({
@@ -64,6 +65,7 @@ const TestEvaluationSchema = z.object({
   total: z.number(),
   classes: z.array(z.string()),
   dataset_version: z.string(),
+  manifest_sha256: z.string(),
   run_id: z.string(),
   selected_at: z.string(),
   evaluated_at: z.string(),
@@ -81,6 +83,7 @@ const LockedEvaluationSchema = z.object({
 const UnlockedEvaluationSchema = z.object({
   locked: z.literal(false),
   selection: EvaluationSelectionSchema,
+  manifest: z.object({ datasetVersion: z.string(), sha256: z.string() }),
   evaluation: TestEvaluationSchema,
 });
 
@@ -99,4 +102,38 @@ export async function getEvaluation(): Promise<EvaluationResponse> {
   }
 
   return EvaluationResponseSchema.parse(await response.json());
+}
+
+const PredictionSchema = z.object({
+  annotationId: z.number(),
+  sourceImageId: z.number(),
+  relativePath: z.string(),
+  trueLabel: z.string(),
+  predictedLabel: z.string(),
+  correct: z.boolean(),
+  confidence: z.number(),
+  probabilities: z.record(z.string(), z.number()),
+  imageUrl: z.string(),
+});
+
+export type Prediction = z.infer<typeof PredictionSchema>;
+
+/** Predicciones por muestra del test (consulta para auditoría). */
+export async function getPredictions(): Promise<Prediction[]> {
+  const response = await fetch("/api/evaluation/predictions");
+
+  if (!response.ok) {
+    throw new Error("No se pudieron obtener las predicciones por muestra.");
+  }
+
+  return z.object({ predictions: z.array(PredictionSchema) }).parse(await response.json())
+    .predictions;
+}
+
+/** Descarga del CSV de predicciones tal como está commiteado. */
+export const PREDICTIONS_CSV_URL = "/api/evaluation/predictions.csv";
+
+/** URL del navegador para una ruta del backend (`/evaluation/crops/56` -> `/api/...`). */
+export function apiUrl(path: string): string {
+  return `/api${path}`;
 }

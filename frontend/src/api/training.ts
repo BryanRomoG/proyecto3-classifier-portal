@@ -52,6 +52,7 @@ export interface TrainingConfigInput {
   imageSize: number;
   hiddenLayers: number[];
   dropout: number;
+  datasetVersion?: string;
 }
 
 export async function createTrainingJob(config: TrainingConfigInput) {
@@ -68,4 +69,27 @@ export async function getLatestTrainingJob() {
 
 export async function getTrainingProvenance() {
   return getJson("/training/provenance", trainingProvenanceSchema);
+}
+
+/** Releases del Proyecto 2: aprobado (compuerta pass) y con manifiesto 70/20/10 derivado. */
+export const trainingReleasesSchema = z.object({
+  current_version: z.string().nullable(),
+  manifest_dataset_version: z.string().nullable(),
+  releases: z.array(
+    z.object({
+      version: z.string(),
+      quality_status: z.string(),
+      content_hash: z.string().nullable(),
+      released_at: z.string().nullable(),
+      approved: z.boolean(),
+      has_manifest: z.boolean(),
+      trainable: z.boolean(),
+    })
+  ),
+});
+
+export type TrainingReleases = z.infer<typeof trainingReleasesSchema>;
+
+export async function getTrainingReleases() {
+  return getJson("/training/releases", trainingReleasesSchema);
 }
