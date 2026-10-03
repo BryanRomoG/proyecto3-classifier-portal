@@ -7,6 +7,7 @@ import {
   int,
   mysqlEnum,
   mysqlTable,
+  text,
   timestamp,
   uniqueIndex,
   varchar,
@@ -243,6 +244,35 @@ export const trainingJobs = mysqlTable(
 
     dropout: double('dropout').notNull(),
 
+    // JSON list of hidden-layer widths of the head, e.g. "[256]" or "[]" (linear head).
+    hiddenLayers: varchar('hidden_layers', {
+      length: 100,
+    })
+      .notNull()
+      .default('[256]'),
+
+    // The real job in the `trainer` service and the MLflow run it produced.
+    trainerJobId: varchar('trainer_job_id', {
+      length: 64,
+    }),
+
+    mlflowRunId: varchar('mlflow_run_id', {
+      length: 64,
+    }),
+
+    // Provenance the trainer checked before starting (release, quality gate, manifest).
+    datasetVersion: varchar('dataset_version', {
+      length: 50,
+    }),
+
+    qualityGateStatus: varchar('quality_gate_status', {
+      length: 20,
+    }),
+
+    manifestSha256: varchar('manifest_sha256', {
+      length: 64,
+    }),
+
     currentEpoch: int('current_epoch', {
       unsigned: true,
     })
@@ -251,11 +281,8 @@ export const trainingJobs = mysqlTable(
 
     progress: double('progress').notNull().default(0),
 
-    logs: varchar('logs', {
-      length: 16000,
-    })
-      .notNull()
-      .default(''),
+    // TEXT: un VARCHAR(16000) en utf8mb4 supera el límite de 65 535 bytes por fila.
+    logs: text('logs').notNull().default(''),
 
     errorMessage: varchar('error_message', {
       length: 2000,

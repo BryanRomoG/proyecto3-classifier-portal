@@ -37,6 +37,8 @@ services:
         condition: service_started
       classifier-inference:
         condition: service_started
+      trainer:
+        condition: service_started
     environment:
       NODE_ENV: production
       PORT: 3100
@@ -56,6 +58,7 @@ services:
       MLFLOW_TRACKING_URI: http://mlflow:5000
       CLASSIFIER_INFERENCE_URL: http://classifier-inference:8300
       CLASSIFIER_INFERENCE_TIMEOUT_MS: 30000
+      TRAINER_URL: http://trainer:8400
       SELECTED_MODEL_PATH: /pipeline/reports/classifier/selected-model.json
       # SPEC-PIPE-001 (APP-07) — dónde el backend lee/escribe las salidas de
       # la pipeline de Data Quality, montadas abajo desde la raíz del repo.
@@ -147,6 +150,36 @@ services:
       - /app/.inference-cache:size=256m,uid=1000,gid=1000
     expose:
       - "8300"
+    depends_on:
+      - mlflow
+    restart: on-failure:5
+
+  # T3-2.3 / T3-2.4: real training jobs for the Training page
+  # (pipeline/src/dataset_quality/classifier/jobs_app.py), on the same torch image as
+  # classifier-inference. POST /jobs validates with the trainer's own TrainingConfig and
+  # refuses a failed quality gate or an unsafe manifest before creating anything; a job is
+  # `python -m dataset_quality.classifier train` as a child process, outside the HTTP
+  # request, logged to the `t3-portal` MLflow experiment -- never to `t3-classifier`,
+  # whose 10 official runs stay untouched. Reads the DVC-produced manifest and crops from
+  # pipeline/data (read-only); job folders go to pipeline/artifacts.
+  trainer:
+    build:
+      context: ./pipeline
+      dockerfile: Dockerfile.inference
+    command: ["python", "-m", "dataset_quality.classifier", "serve-jobs", "--port", "8400"]
+    environment:
+      MLFLOW_TRACKING_URI: http://mlflow:5000
+      CLASSIFIER_PIPELINE_ROOT: /app
+      CLASSIFIER_JOBS_DIR: /app/artifacts/classifier/portal-jobs
+      CLASSIFIER_DEVICE: cpu
+      # The image has no git binary; without this, MLflow's git lookup fills the job log
+      # (shown on the Training page) with warnings. The run is tagged git_commit=unknown.
+      GIT_PYTHON_REFRESH: quiet
+    volumes:
+      - ./pipeline/data:/app/data:ro
+      - ./pipeline/artifacts:/app/artifacts
+    expose:
+      - "8400"
     depends_on:
       - mlflow
     restart: on-failure:5

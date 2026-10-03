@@ -9,7 +9,13 @@ export const trainingJobSchema = z.object({
   epochs: z.number(),
   learningRate: z.number(),
   imageSize: z.number(),
+  hiddenLayers: z.string(),
   dropout: z.number(),
+  trainerJobId: z.string().nullable(),
+  mlflowRunId: z.string().nullable(),
+  datasetVersion: z.string().nullable(),
+  qualityGateStatus: z.string().nullable(),
+  manifestSha256: z.string().nullable(),
   currentEpoch: z.number(),
   progress: z.number(),
   logs: z.string(),
@@ -24,16 +30,31 @@ export const createTrainingResponseSchema = z.object({
   status: z.enum(["queued", "running"]),
 });
 
-export type TrainingJob = z.infer<typeof trainingJobSchema>;
+/** Release, compuerta de calidad y manifiesto 70/20/10 que usará el entrenamiento. */
+export const trainingProvenanceSchema = z.object({
+  dataset_version: z.string(),
+  quality_gate_status: z.string(),
+  manifest_sha256: z.string(),
+  manifest_proportions: z.string(),
+  classes: z.array(z.string()),
+  split_counts: z.record(z.string(), z.record(z.string(), z.number())),
+  test_isolated: z.boolean(),
+});
 
-export async function createTrainingJob(config: {
+export type TrainingJob = z.infer<typeof trainingJobSchema>;
+export type TrainingProvenance = z.infer<typeof trainingProvenanceSchema>;
+
+export interface TrainingConfigInput {
   optimizer: string;
   batchSize: number;
   epochs: number;
   learningRate: number;
   imageSize: number;
+  hiddenLayers: number[];
   dropout: number;
-}) {
+}
+
+export async function createTrainingJob(config: TrainingConfigInput) {
   return postJson("/training/jobs", config, createTrainingResponseSchema);
 }
 
@@ -43,4 +64,8 @@ export async function getTrainingJob(id: number) {
 
 export async function getLatestTrainingJob() {
   return getJson("/training/jobs/latest", trainingJobSchema);
+}
+
+export async function getTrainingProvenance() {
+  return getJson("/training/provenance", trainingProvenanceSchema);
 }

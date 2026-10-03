@@ -98,31 +98,37 @@ Viven en la misma Web App que las de los Proyectos 1 y 2, con su propio menú.
 
 | Ruta | Qué muestra | Fuente de datos |
 |---|---|---|
-| `/training` | formulario de parámetros y trabajo en segundo plano, con estado, progreso y logs que persisten al recargar | backend `POST /training/jobs`, `GET /training/jobs/:jobId` (tabla `training_jobs` en MariaDB) |
+| `/training` | procedencia (release, compuerta de calidad, manifiesto, conteos, test aislado), formulario de los 7 hiperparámetros con errores por campo, y el trabajo real en segundo plano, con estado, progreso, logs y run de MLflow que persisten al recargar | backend `GET /training/provenance`, `POST /training/jobs`, `GET /training/jobs/:jobId` (tabla `training_jobs`) → servicio `trainer` |
 | `/experiments` | corridas de MLflow, sus parámetros y métricas | backend `GET /experiments`, `GET /experiments/:runId` → API de MLflow |
 | `/evaluation` | candidato seleccionado, métricas finales y matriz de confusión | backend `GET /evaluation`, `GET /evaluation/selection` → `pipeline/reports/classifier/` |
 | `/models` | modelos, selección para inferencia y descarga | backend `GET /models`, `POST /models/:runId/select`, `GET /models/:runId/download` |
-| `/inference` | carga de una imagen para clasificar | — |
+| `/inference` | clasificación de una imagen nueva o de un recorte anotado en el portal con el modelo elegido en Models, y envío a la cola de anotación | backend `POST /inference/image`, `/inference/crop` y sus variantes `/queue` → servicio `classifier-inference` |
 
-La validación de la configuración de entrenamiento con las mismas reglas que el entrenador
-está en el servicio `classifier-api` (`GET /classifier-api/training/schema`,
-`POST /classifier-api/training/validate`). Los contratos de datos para el portal están en
-`docs/t3-ml-contracts.md`.
+Un trabajo de Training lo ejecuta el servicio `trainer`
+(`pipeline/src/dataset_quality/classifier/jobs_app.py`). Antes de crear nada valida la
+configuración con el mismo `TrainingConfig` que el entrenador y rechaza una compuerta de
+calidad distinta de `pass` o un manifiesto con fuga. Después corre
+`python -m dataset_quality.classifier train` como proceso aparte, fuera de la petición, y lo
+registra en el experimento de MLflow `t3-portal`, nunca en `t3-classifier`, para no tocar las
+10 corridas oficiales. En Docker corre en CPU: para una prueba corta basta con `Max epochs` 1
+o 2 (1 época con imagen de 96 px tardó ~1 min). Necesita memoria libre en Docker: con una VM
+de 4 GB y el stack completo arriba, el kernel mató el proceso de entrenamiento (el trabajo queda
+`failed` con `código -9`) hasta detener servicios ociosos; conviene asignar 6 GB o más a
+Docker Desktop. El servicio `classifier-api` expone las mismas reglas de validación
+(`GET /classifier-api/training/schema`, `POST /classifier-api/training/validate`). Los
+contratos de datos para el portal están en `docs/t3-ml-contracts.md`.
 
 ### Pendientes conocidos
 
-Estado del código en `main` a la fecha de esta revisión del README. Hay que quitar cada punto
-cuando se resuelva:
+Estado del código a la fecha de esta revisión del README. Hay que quitar cada punto cuando se
+resuelva:
 
-- **Entrenamiento desde el portal:** `backend/src/logic/training.worker.ts` simula las épocas
-  (`sleep`) en lugar de ejecutar el entrenador (`python -m dataset_quality.classifier train`).
-  El formulario valida con su propio esquema, que no incluye `hidden_layers`, en lugar de usar
-  `classifier-api`.
-- **Experiments, Evaluation y Models dentro de Docker:** el servicio `backend` de
-  `docker-compose.yml` no define `MLFLOW_TRACKING_URI` (el cliente usa `localhost:5000` por
-  defecto) ni monta `pipeline/reports/classifier`, que el backend lee desde
-  `../pipeline/reports/classifier`.
-- **Inference:** la página todavía no llama a ningún endpoint de predicción.
+- **Models:** lista las corridas de MLflow (`backend/src/logic/models.service.ts`) y usa su
+  nombre como versión; todavía no muestra la versión publicada del paquete (`v1.0.0`), su
+  tarjeta ni su estado en S3 (`docs/t3-3-6-model-release.md`).
+- **Experiments:** filtra las corridas, pero no permite ordenarlas.
+- **Evaluation:** no ofrece exportar ni consultar las predicciones por muestra
+  (`pipeline/reports/classifier/test_predictions.csv`).
 
 ---
 
@@ -187,8 +193,9 @@ desarrollo local):
 docker compose up --build
 ```
 
-Esto levanta los siete servicios por defecto (`mariadb`, `minio`, `backend`,
-`copilot`, `classifier-api`, `mlflow` y `frontend`, ver `docker-compose.yml`) -- **no** incluye el
+Esto levanta los nueve servicios por defecto (`mariadb`, `minio`, `backend`, `copilot`,
+`classifier-api`, `classifier-inference`, `trainer`, `mlflow` y `frontend`, ver
+`docker-compose.yml`) -- **no** incluye el
 pipeline de Python, que vive detrás de un profile aparte (ver
 [Pipeline (Python)](#pipeline-python) más abajo). El Portal de Anotación
 (Proyecto 1, rutas `/dashboard`, `/search`, `/upload`) funciona con solo este

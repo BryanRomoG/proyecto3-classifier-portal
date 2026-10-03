@@ -1,88 +1,52 @@
 import { getTrainingJob, updateTrainingJob } from '../data/repositories/training.repository.js';
+import { getTrainerJob, type TrainerJobView } from '../data/trainer.client.js';
 
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => {
-    setTimeout(resolve, ms);
-  });
+/**
+ * El entrenamiento real corre en el servicio `trainer` como proceso aparte, fuera del
+ * request HTTP. Aquí solo se refleja su estado en `training_jobs` (MariaDB): cada lectura
+ * de un trabajo sin terminar lo sincroniza, así que el progreso, los logs y el error
+ * persisten al recargar la página.
+ */
+
+const STATUS: Record<TrainerJobView['state'], 'queued' | 'running' | 'completed' | 'failed'> = {
+  queued: 'queued',
+  running: 'running',
+  finished: 'completed',
+  failed: 'failed',
+};
+
+const MAX_LOG_LENGTH = 16000;
+
+export function trainerViewToJobUpdate(view: TrainerJobView) {
+  const logs =
+    view.log_tail.length > MAX_LOG_LENGTH ? view.log_tail.slice(-MAX_LOG_LENGTH) : view.log_tail;
+  return {
+    status: STATUS[view.state],
+    currentEpoch: view.epoch,
+    progress: view.progress,
+    mlflowRunId: view.run_id,
+    ...(logs ? { logs } : {}),
+    errorMessage: view.error ? view.error.slice(0, 2000) : null,
+    startedAt: view.started_at ? new Date(view.started_at) : null,
+    finishedAt: view.finished_at ? new Date(view.finished_at) : null,
+  };
 }
 
-async function appendLog(jobId: number, message: string): Promise<void> {
+export async function syncTrainingJob(jobId: number): Promise<void> {
   const job = await getTrainingJob(jobId);
-
-  if (!job) {
+  if (!job?.trainerJobId || job.status === 'completed' || job.status === 'failed') {
     return;
   }
-
-  const timestamp = new Date().toISOString();
-
-  const newLogs = [job.logs, `[${timestamp}] ${message}`].filter(Boolean).join('\n');
-
-  await updateTrainingJob(jobId, {
-    logs: newLogs,
-  });
-}
-
-export async function runTrainingJob(jobId: number): Promise<void> {
-  const job = await getTrainingJob(jobId);
-
-  if (!job) {
-    return;
-  }
-
-  try {
-    await updateTrainingJob(jobId, {
-      status: 'running',
-      startedAt: new Date(),
-      currentEpoch: 0,
-      progress: 0,
-    });
-
-    await appendLog(jobId, `Iniciando entrenamiento con ${job.optimizer}.`);
-
-    await appendLog(
-      jobId,
-      `Batch size=${job.batchSize}, learning rate=${job.learningRate}, image size=${job.imageSize}.`,
-    );
-
-    for (let epoch = 1; epoch <= job.epochs; epoch += 1) {
-      /*
-       * Simula el trabajo de entrenamiento real.
-       *
-       * En el siguiente ticket esta sección puede sustituirse
-       * por la ejecución real del pipeline/classifier.
-       *
-       * Lo importante para T3-2.3 es que el trabajo ocurre
-       * después de responder el HTTP y su estado se persiste.
-       */
-      await sleep(1000);
-
-      const progress = Math.round((epoch / job.epochs) * 100);
-
-      await updateTrainingJob(jobId, {
-        currentEpoch: epoch,
-        progress,
-      });
-
-      await appendLog(jobId, `Epoch ${epoch}/${job.epochs} completado. Progress=${progress}%.`);
-    }
-
-    await appendLog(jobId, 'Entrenamiento completado correctamente.');
-
-    await updateTrainingJob(jobId, {
-      status: 'completed',
-      progress: 100,
-      currentEpoch: job.epochs,
-      finishedAt: new Date(),
-    });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Error desconocido';
-
-    await appendLog(jobId, `ERROR: ${message}`);
-
+  const { status, body } = await getTrainerJob(job.trainerJobId);
+  if (status === 404) {
     await updateTrainingJob(jobId, {
       status: 'failed',
-      errorMessage: message,
-      finishedAt: new Date(),
+      errorMessage: 'El trabajo ya no existe en el servicio trainer.',
     });
+    return;
   }
+  if (status !== 200) {
+    return; // trainer momentáneamente no disponible: se reintenta en la siguiente lectura
+  }
+  await updateTrainingJob(jobId, trainerViewToJobUpdate(body));
 }
