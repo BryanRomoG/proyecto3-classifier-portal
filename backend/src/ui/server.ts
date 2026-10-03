@@ -21,6 +21,7 @@ import {
   getSelectedModel,
   getSelection,
   getSplitReport,
+  getTrainingProvenance,
   getTrainingRun,
   getVersionHistory,
   idParamSchema,
@@ -38,6 +39,7 @@ import {
   searchImages,
   selectModel,
   setImageStatus,
+  TrainingRejectedError,
   trainingConfigSchema,
   updateAnnotation,
   updateQualityPolicy,
@@ -490,12 +492,18 @@ app.post('/training/jobs', async (req, res) => {
 
   if (!parsed.success) {
     res.status(400).json({
-      error: parsed.error.issues[0]?.message ?? 'Configuración de entrenamiento inválida.',
+      error: 'Configuración de entrenamiento inválida.',
+      errors: parsed.error.issues.map((issue) => ({
+        field: issue.path.join('.'),
+        message: issue.message,
+      })),
     });
     return;
   }
 
   try {
+    // El servicio trainer valida con las reglas del entrenador y revisa la compuerta de
+    // calidad ANTES de crear nada: si rechaza, no queda ningún trabajo fantasma.
     const jobId = await createTrainingRun(parsed.data);
 
     res.status(202).json({
@@ -503,7 +511,26 @@ app.post('/training/jobs', async (req, res) => {
       status: 'queued',
     });
   } catch (error) {
+    if (error instanceof TrainingRejectedError) {
+      res.status(error.status).json({ error: error.message, errors: error.errors });
+      return;
+    }
     sendError(res, error, 'No se pudo crear el entrenamiento.');
+  }
+});
+
+/**
+ * Release, compuerta de calidad y manifiesto 70/20/10 sobre los que entrena un trabajo.
+ */
+app.get('/training/provenance', async (_req, res) => {
+  try {
+    res.status(200).json(await getTrainingProvenance());
+  } catch (error) {
+    if (error instanceof TrainingRejectedError) {
+      res.status(error.status).json({ error: error.message });
+      return;
+    }
+    sendError(res, error, 'No se pudo obtener la procedencia del entrenamiento.');
   }
 });
 

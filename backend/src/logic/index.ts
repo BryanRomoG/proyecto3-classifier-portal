@@ -98,6 +98,8 @@ export type { TrainingConfig } from './training.service.js';
 export {
   createTrainingRun,
   getLatestTrainingRun,
+  getTrainingProvenance,
   getTrainingRun,
+  TrainingRejectedError,
   trainingConfigSchema,
 } from './training.service.js';

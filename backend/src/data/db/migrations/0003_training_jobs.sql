@@ -12,7 +12,9 @@ CREATE TABLE `training_jobs` (
   `current_epoch` int unsigned NOT NULL DEFAULT 0,
   `progress` double NOT NULL DEFAULT 0,
 
-  `logs` varchar(16000) NOT NULL DEFAULT '',
+  -- TEXT, no VARCHAR(16000): en utf8mb4 eso son 64 000 bytes y supera el límite de
+  -- 65 535 bytes por fila de MariaDB (ERROR 1118 "Row size too large").
+  `logs` text NOT NULL DEFAULT '',
   `error_message` varchar(2000),
 
   `created_at` timestamp NOT NULL DEFAULT (now()),

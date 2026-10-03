@@ -39,6 +39,10 @@ const envSchema = z.object({
 
   CLASSIFIER_INFERENCE_TIMEOUT_MS: z.coerce.number().int().positive().default(30_000),
 
+  // T3-2.3: servicio `trainer` (pipeline/src/dataset_quality/classifier/jobs_app.py), que
+  // valida con las reglas del entrenador, revisa la compuerta y entrena de verdad.
+  TRAINER_URL: z.string().url().default('http://localhost:8400'),
+
   // Archivo compartido que fija el modelo elegido desde la página Models.
   SELECTED_MODEL_PATH: z
     .string()
