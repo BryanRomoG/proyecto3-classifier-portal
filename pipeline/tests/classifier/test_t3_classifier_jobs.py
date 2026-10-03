@@ -56,6 +56,20 @@ def _write_gate(root, status: str) -> None:
     (interim / "quality.json").write_text(
         json.dumps({"overall_status": status, "dataset_version": "v-test"}), encoding="utf-8"
     )
+    # The Project 2 release history: the approved release the manifest derives from, plus an
+    # older one whose quality gate failed.
+    (interim / "versions.json").write_text(
+        json.dumps(
+            {
+                "current_version": "v-test",
+                "versions": [
+                    {"version": "v-old", "quality_status": "fail", "content_hash": "aaa"},
+                    {"version": "v-test", "quality_status": status, "content_hash": "bbb"},
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
 
 
 @pytest.fixture
@@ -156,3 +170,56 @@ def test_a_job_whose_service_restarted_mid_run_is_reported_as_interrupted(servic
     assert view["state"] == "failed"
     assert "interrumpió" in view["error"]
     assert _call(service["app"], "GET", "/jobs/missing")[0] == 404
+
+
+def test_releases_lists_the_project_2_versions_and_which_one_can_train(service) -> None:
+    status, body = _call(service["app"], "GET", "/releases")
+
+    assert status == 200
+    by_version = {release["version"]: release for release in body["releases"]}
+    assert by_version["v-test"]["quality_status"] == "pass"
+    assert by_version["v-test"]["approved"] is True
+    assert by_version["v-test"]["has_manifest"] is True
+    assert by_version["v-old"]["approved"] is False
+    assert by_version["v-old"]["has_manifest"] is False
+    assert body["manifest_dataset_version"] == "v-test"
+
+
+@pytest.mark.parametrize("version", ["v-old", "v-unknown"])
+def test_a_job_for_a_release_that_is_not_approved_or_has_no_manifest_is_refused(
+    service, version
+) -> None:
+    payload = json.loads(_config())
+    payload["dataset_version"] = version
+
+    status, response = _call(service["app"], "POST", "/jobs", json.dumps(payload).encode())
+
+    assert status == 409
+    assert version in response["error"]
+    assert not any(service["jobs"].iterdir())
+
+
+def test_runs_reports_which_official_runs_are_valid(service, synthetic, tmp_path) -> None:
+    from dataset_quality.classifier.training import train
+
+    for name in ("first", "same-again"):
+        train(
+            tiny_config(max_epochs=2),
+            manifest_path=synthetic.manifest_path,
+            data_root=synthetic.root,
+            output_root=tmp_path / "runs",
+            pipeline_root=synthetic.root,
+            experiment_name=jobs_app.OFFICIAL_EXPERIMENT,
+            run_name=name,
+            device="cpu",
+        )
+
+    status, body = _call(service["app"], "GET", "/runs")
+
+    assert status == 200
+    assert body["experiment"] == jobs_app.OFFICIAL_EXPERIMENT
+    assert body["valid_runs"] == 1
+    validity = {row["run_name"]: row for row in body["runs"]}
+    assert validity["first"]["valid"] is True
+    assert validity["same-again"]["valid"] is False
+    assert validity["same-again"]["invalid_reasons"]
