@@ -56,3 +56,56 @@ describe('Models: selección para inferencia', () => {
     expect(stored.runId).toBe('run-1');
   });
 });
+
+describe('Models: versiones publicadas', () => {
+  beforeEach(async () => {
+    await fs.rm(stateDir, { recursive: true, force: true });
+    await fs.mkdir(path.join(stateDir, 'reports', 'releases'), { recursive: true });
+  });
+
+  it('lista las versiones semánticas publicadas con su estado en S3, no los runs', async () => {
+    const { listVersions } = await import('../src/logic/models.service.js');
+    await fs.writeFile(
+      path.join(stateDir, 'reports', 'releases', 'v1.0.0.json'),
+      JSON.stringify({
+        version: 'v1.0.0',
+        bucket: 'dataset-releases-prod-1',
+        s3_uri: 's3://dataset-releases-prod-1/t3-classifier/v1.0.0/',
+        run_id: 'run-1',
+        run_name: 'r03',
+        checkpoint_sha256: 'fe1c',
+        dataset: { dataset_version: 'v1.0.0', manifest_sha256: 'abc' },
+        test_metrics: { accuracy: 0.98 },
+        dependencies: null,
+        split: null,
+        objects: {
+          'model.pt': {
+            key: 't3-classifier/v1.0.0/model.pt',
+            size: 10,
+            version_id: 'V1',
+            sha256: 'fe1c',
+          },
+        },
+        card_markdown: '# Model card',
+        recorded_at: '2026-10-03T00:00:00Z',
+        verified_with: 'HeadObject',
+      }),
+    );
+    vi.mocked(getClassifierRun).mockResolvedValue(run('FINISHED'));
+    await selectModel('run-1');
+
+    const versions = await listVersions();
+
+    expect(versions).toHaveLength(1);
+    expect(versions[0]).toMatchObject({
+      version: 'v1.0.0',
+      runId: 'run-1',
+      datasetVersion: 'v1.0.0',
+      published: true,
+      s3Uri: 's3://dataset-releases-prod-1/t3-classifier/v1.0.0/',
+      cardMarkdown: '# Model card',
+      selected: true,
+    });
+    expect(versions[0]?.objects[0]).toMatchObject({ name: 'model.pt', versionId: 'V1' });
+  });
+});
